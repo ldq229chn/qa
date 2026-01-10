@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>颌面外科问诊</title>
+    <style>
+        .container { 
+            width: 600px; 
+            margin: 50px auto; 
+            text-align: center; 
+        }
+        input { 
+            padding: 8px; 
+            width: 300px; 
+            margin: 10px 0; 
+        }
+        button { 
+            padding: 8px 20px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        #result { 
+            margin-top: 20px; 
+            padding: 15px; 
+            border: 1px solid #eee; 
+            min-height: 300px; 
+            max-height: 500px;
+            overflow-y: auto;
+            background-color: #f7f7f7;
+            border-radius: 8px;
+        }
+        .msg-doctor {
+            display: flex;
+            justify-content: flex-end;
+            margin: 8px 0;
+        }
+        .msg-doctor .content {
+            background-color: #0084ff;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 18px 18px 4px 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .msg-patient {
+            display: flex;
+            justify-content: flex-start;
+            margin: 8px 0;
+        }
+        .msg-patient .content {
+            background-color: white;
+            color: #333;
+            padding: 8px 12px;
+            border-radius: 18px 18px 18px 4px;
+            max-width: 70%;
+            word-wrap: break-word;
+            border: 1px solid #e5e5e5;
+        }
+        .priority { 
+            color: #e67e22; 
+            font-weight: bold; 
+        }
+    </style>
+    <!-- 必须引入EmailJS官方SDK，缺一不可 -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>颌面外科问诊-腮腺区进食后肿胀</h2>
+        <div id="login-box">
+            <input type="text" id="username" placeholder="请输入用户名（姓名）">
+            <input type="password" id="password" placeholder="请输入密码（学号）">
+            <button onclick="login()">登录</button>
+        </div>
+        <div id="qa-box" style="display: none;">
+            <input type="text" id="input-text" placeholder="请进行问诊">
+            <button onclick="queryAnswer()">提问</button>
+            <button onclick="sendChatHistoryByEmail()">发送问诊记录到邮箱</button>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 【你的EmailJS完整配置，一字未改】 ==========
+        emailjs.init("ULE5P-Qr6l5z2JS6I"); 
+        const SERVICE_ID = "service_ytegvpa";
+        const TEMPLATE_ID = "template_2uk5olr";
+        const TARGET_EMAIL = "ldq229@163.com";
+
+        // ========== 固定用户列表 ==========
+        const USER_LIST = [
+            {username: "李殿奇", password: "102561"},
+            {username: "李展丞", password: "I202120030"},
+            {username: "金秉国", password: "I202220071"},
+            {username: "毕芙蓉", password: "U202113475"},
+            {username: "赵轩", password: "U202113770"},
+            {username: "张晓蕊", password: "U202211213"},
+            {username: "陈溪", password: "U202211803"},
+            {username: "张嘉硕", password: "U202212774"},
+            {username: "张志尧", password: "U202212802"},
+            {username: "周煜", password: "U202212936"},
+            {username: "陈美伊", password: "U202213368"},
+            {username: "王瑞", password: "U202213388"},
+            {username: "肖疏影", password: "U202213392"},
+            {username: "黄希露", password: "U202213402"},
+            {username: "屈紫涵", password: "U202213411"},
+            {username: "王锦萍", password: "U202213415"},
+            {username: "董信蔚", password: "U202213430"},
+            {username: "廖羽赫", password: "U202213478"},
+            {username: "董昊月", password: "U202213497"},
+            {username: "李想", password: "U202213508"},
+            {username: "赵天一", password: "U202213521"},
+            {username: "付煜", password: "U202213558"},
+            {username: "王天然", password: "U202213569"},
+            {username: "赵子恒", password: "U202213575"},
+            {username: "朱浩荡", password: "U202213580"},
+            {username: "陈澍", password: "U202213581"},
+            {username: "廖云", password: "U202213592"},
+            {username: "许琳", password: "U202213605"},
+            {username: "廖宇淮", password: "U202213622"},
+            {username: "王思艺", password: "U202213631"},
+            {username: "钟建武", password: "U202213640"},
+            {username: "江懂", password: "U202213647"},
+            {username: "吴姝靖", password: "U202213693"},
+            {username: "吴威霖", password: "U202214602"},
+            {username: "张圣豪", password: "U202214646"},
+            {username: "邹雨成", password: "U202216843"}
+        ];
+        // ========== 固定问答列表 ==========
+        const QA_LIST = [
+            {question: "怎么不舒服", keyword: "不舒服,来就诊", answer: "吃饭后右侧腮腺区肿胀不适"},
+            { question: "腮腺肿胀和进食有关吗", keyword: "吃,吃饭,进食", answer: "吃酸性、油腻或者辛辣的食物后迅速肿胀酸胀，以右侧腮腺肿胀为主，肿胀局限于耳朵前面，可以看到这里一下子就肿起来了，没有向外面扩散"},
+            { question: "过敏史", keyword: "过敏", answer: "目前还没有发现对什么药物或者食物过敏史"},
+            { question: "有没有全身疾病", keyword: "既往,全身疾病", answer: "没有高血压、糖尿病、冠心病这些慢性疾病，没有做过手术，也没有输过血"},
+            { question: "牙齿有没有疼痛", keyword: "智牙,智齿,牙齿,口腔情况", answer: "智齿在10年前因为反复发炎而拔除，牙龈没有肿胀不舒服"},
+            { question: "腮腺肿胀发作频率", keyword: "发作,频率", answer: "频率逐渐增加，前2年3-4个月发作1次，近半年每月1-2次，劳累、熬夜、刺激性食物会诱发"},
+            { question: "肿胀会不会自行好转", keyword: "自行,好转", answer: "停止吃东西之后可以慢慢缓解"},
+            { question: "出现症状多久了，发病持续时间", keyword: "出现,症状,多久,发病,持续,时间", answer: "2年前第一次出现这种症状，持续2天；近半年每月发作1-2次，每次持续3-5天，自行按摩或口服消炎药可缓解"},
+            { question: "最近有没有什么变化", keyword: "近来,最近,变化", answer: "最近持续的时间逐渐延长，自行缓解的时间也变长了"},
+            { question: "晨起腮腺区症状及分泌物情况", keyword: "早晨,起床,口水,口干", answer: "早晨起床的时候右侧腮腺稍微有些不舒服，按摩后嘴巴里会流出少量咸味黏稠液体，症状有所缓解；平时没有出现过口干口苦"},
+            { question: "对生活质量的影响", keyword: "生活,影响", answer: "影响吃饭；吃饭后出现面部肿胀，影响工作和生活，对睡眠影响不大"},
+            { question: "既往就诊情况", keyword: "之前,就诊", answer: "1年于社区医院看过，诊断为“腮腺炎”，口服抗生素可以缓解；半年前在当地医院口腔科就诊，考虑“慢性腮腺炎”，予不明清热解毒中成药，症状暂缓解但反复"},
+            { question: "做过什么治疗", keyword: "治疗", answer: "之前口服消炎药和中药，没有做过手术"},
+            { question: "导管扪诊", keyword: "触诊", answer: "触诊结果：右侧颊黏膜下可扪及2cm长粗硬索条状导管，质地韧，按压无明显疼痛，活动度可，与周围组织无粘连"},
+            { question: "导管口检查", keyword: "导管口", answer: "导管口检查结果：（上颌第二磨牙对应颊黏膜处）轻微红肿，黏膜无糜烂溃疡；开口通畅，挤压后流出少量浑浊“雪花样”唾液，夹杂细小黏液栓子，质地黏稠，无鲜血及脓液"},
+            { question: "做了腮腺超声吗", keyword: "超声,彩超,检查", answer: "彩超结果：右侧腮腺体积稍大，实质回声不均，散在低回声区，导管扩张（内径0.3cm），内见少量强回声光点（考虑黏液栓子）；左侧无明显异常。没有做过造影和CT检查"},
+            { question: "查了血常规吗", keyword: "查,血,血常规", answer: "白细胞计数、中性粒细胞比例均正常"}
+        ];
+
+        let chatHistory = [];
+        let currentUser = "";
+
+        // 登录验证
+        function login() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const user = USER_LIST.find(u => u.username === username && u.password === password);
+            if (user) {
+                currentUser = username;
+                alert(` ${username}医生，你好`);
+                document.getElementById("login-box").style.display = "none";
+                document.getElementById("qa-box").style.display = "block";
+                loadChatHistory();
+            } else {
+                alert("账号或密码错误！");
+            }
+        }
+        // 加载本地存储的聊天记录
+        function loadChatHistory() {
+            const storedHistory = localStorage.getItem(`chat_${currentUser}`);
+            if (storedHistory) {
+                chatHistory = JSON.parse(storedHistory);
+                renderChatHistory();
+            }
+        }
+        // 保存聊天记录到本地存储
+        function saveChatHistory() {
+            if (currentUser) {
+                localStorage.setItem(`chat_${currentUser}`, JSON.stringify(chatHistory));
+            }
+        }
+        // 渲染聊天记录
+        function renderChatHistory() {
+            const resultDom = document.getElementById("result");
+            let html = "";
+            chatHistory.forEach(msg => {
+                if (msg.role === "doctor") {
+                    html += `<div class="msg-doctor"><div class="content">${msg.content}</div></div>`;
+                } else if (msg.role === "patient") {
+                    html += `<div class="msg-patient"><div class="content">${msg.content}</div></div>`;
+                }
+            });
+            resultDom.innerHTML = html;
+            resultDom.scrollTop = resultDom.scrollHeight;
+        }
+        // 问诊提问匹配答案
+        function queryAnswer() {
+            const inputText = document.getElementById("input-text").value.trim();
+            if (!inputText) {
+                alert("请输入问题！");
+                return;
+            }
+            chatHistory.push({role: "doctor", content: inputText});
+            const inputWords = inputText.split(/[\s,，。？！]/).filter(word => word.length > 0);
+            const matchResult = [];
+            QA_LIST.forEach(qa => {
+                const qaKeywords = qa.keyword.split(",").map(k => k.trim());
+                let matchCount = 0;
+                inputWords.forEach(word => {
+                    if (qaKeywords.some(k => k.includes(word) || word.includes(k))) matchCount++;
+                });
+                if (matchCount > 0) matchResult.push({ ...qa, matchCount });
+            });
+            matchResult.sort((a, b) => b.matchCount - a.matchCount);
+            chatHistory.push({
+                role: "patient",
+                content: matchResult.length > 0 ? matchResult[0].answer : "不好意思，没听懂您的意思"
+            });
+            saveChatHistory();
+            document.getElementById("input-text").value = "";
+            renderChatHistory();
+        }
+
+        // ========== 【核心修复】EmailJS发送邮件 - 完美匹配你的模板 ==========
+        function sendChatHistoryByEmail() {
+            if (!currentUser) { alert("请先登录！"); return; }
+            if (chatHistory.length === 0) { alert("暂无问诊记录可发送！"); return; }
+
+            // 1. 格式化问答记录，排版工整
+            let historyContent = "";
+            chatHistory.forEach((item, idx) => {
+                const role = item.role === "doctor" ? "医生提问" : "患者回答";
+                historyContent += `${idx+1}. ${role}：${item.content}\n`;
+            });
+
+            // 2. 组装邮件参数【变量名和你的EmailJS模板1:1对应，重中之重】
+            const emailParams = {
+                login_name: currentUser,  // 登录的医生姓名
+                to_email: TARGET_EMAIL,   // 接收邮箱 ldq229@163.com
+                send_time: new Date().toLocaleString('zh-CN'), // 发送时间 年月日时分秒
+                history_data: historyContent // 完整的问答历史记录
+            };
+
+            // 3. 调用EmailJS发送邮件
+            emailjs.send(SERVICE_ID, TEMPLATE_ID, emailParams)
+                .then(() => {
+                    alert(`✅ 发送成功！问诊记录已发送至 ${TARGET_EMAIL}`);
+                }, (error) => {
+                    alert(`❌ 发送失败：${error.text}`);
+                    console.log("邮件发送错误信息：", error);
+                });
+        }
+    </script>
+</body>
+</html>
