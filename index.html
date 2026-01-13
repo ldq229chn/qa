@@ -2,92 +2,110 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>颌面外科问诊</title>
-    <style>
-        .container { 
-            width: 600px; 
-            margin: 50px auto; 
-            text-align: center; 
-        }
-        input { 
-            padding: 8px; 
-            width: 300px; 
-            margin: 10px 0; 
-        }
-        button { 
-            padding: 8px 20px; 
-            cursor: pointer; 
-            margin: 5px;
-        }
-        #result { 
-            margin-top: 20px; 
-            padding: 15px; 
-            border: 1px solid #eee; 
-            min-height: 300px; 
-            max-height: 500px;
-            overflow-y: auto;
-            background-color: #f7f7f7;
-            border-radius: 8px;
-        }
-        .msg-doctor {
-            display: flex;
-            justify-content: flex-end;
-            margin: 8px 0;
-        }
-        .msg-doctor .content {
-            background-color: #0084ff;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 18px 18px 4px 18px;
-            max-width: 70%;
-            word-wrap: break-word;
-        }
-        .msg-patient {
-            display: flex;
-            justify-content: flex-start;
-            margin: 8px 0;
-        }
-        .msg-patient .content {
-            background-color: white;
-            color: #333;
-            padding: 8px 12px;
-            border-radius: 18px 18px 18px 4px;
-            max-width: 70%;
-            word-wrap: break-word;
-            border: 1px solid #e5e5e5;
-        }
-        .priority { 
-            color: #e67e22; 
-            font-weight: bold; 
-        }
-    </style>
-    <!-- 必须引入EmailJS官方SDK，缺一不可 -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医疗问诊练习平台 - SP标准化病人场景</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 </head>
-<body>
-    <div class="container">
-        <h2>颌面外科问诊-腮腺区进食后肿胀</h2>
-        <div id="login-box">
-            <input type="text" id="username" placeholder="请输入用户名（姓名）">
-            <input type="password" id="password" placeholder="请输入密码（学号）">
-            <button onclick="login()">登录</button>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 登录页面 -->
+    <div id="loginPage" class="flex items-center justify-center min-h-screen bg-gray-100">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">医疗问诊练习平台</h2>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+                    <input type="text" id="username" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="请输入用户名">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+                    <input type="password" id="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="请输入密码">
+                </div>
+                <div id="errorMessage" class="hidden text-red-600 text-sm text-center"></div>
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    登录
+                </button>
+            </form>
         </div>
-        <div id="qa-box" style="display: none;">
-            <input type="text" id="input-text" placeholder="请进行问诊">
-            <button onclick="queryAnswer()">提问</button>
-            <button onclick="sendChatHistoryByEmail()">发送问诊记录到邮箱</button>
-            <div id="result"></div>
+    </div>
+
+    <!-- 主应用页面 -->
+    <div id="app" class="hidden">
+        <nav class="bg-blue-600 text-white p-4 shadow-md">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-xl font-bold">医疗问诊练习平台</h1>
+                <div class="flex items-center space-x-4">
+                    <span id="userNameDisplay" class="font-medium"></span>
+                    <button id="logoutBtn" class="bg-white text-blue-600 px-3 py-1 rounded-md text-sm hover:bg-gray-100">退出登录</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-4">
+            <!-- 首页 -->
+            <section id="homeSection" class="py-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">SP标准化病人问诊练习</h2>
+                    <p class="text-gray-600 mb-6">欢迎使用医疗问诊练习平台，点击下方按钮开始SP标准化病人场景问诊练习</p>
+                    <div class="flex flex-wrap gap-4">
+                        <button id="startPracticeBtn" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 flex items-center">
+                            <i class="fas fa-play mr-2"></i> 开始问诊练习
+                        </button>
+                        <button id="viewRecordTemplateBtn" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 flex items-center">
+                            <i class="fas fa-file-alt mr-2"></i> 查看病历模板
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SP问诊练习区 -->
+            <section id="spPracticeSection" class="hidden py-8">
+                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">SP标准化病人问诊 - 王芳（28岁）</h3>
+                    </div>
+                    <!-- 对话容器 -->
+                    <div id="conversationContainer" class="border border-gray-200 rounded-md p-4 h-[400px] overflow-y-auto mb-4 bg-gray-50 space-y-4"></div>
+                    <!-- 反馈区域 -->
+                    <div id="feedbackArea" class="hidden p-3 rounded-md mb-4">
+                        <p id="feedbackMessage" class="text-sm"></p>
+                    </div>
+                    <!-- 提问输入 -->
+                    <div class="flex gap-2">
+                        <input type="text" id="userQuestionInput" class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="请输入您的问诊问题（例如：您的肿胀持续多久了？）">
+                        <button id="askQuestionBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">提问</button>
+                        <button id="resetPracticeBtn" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">重置练习</button>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <button id="backToHomeBtn" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">返回首页</button>
+                    <button id="endPracticeBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700">
+                        结束问诊
+                    </button>
+                </div>
+            </section>
+
+            <!-- 病历模板区 -->
+            <section id="recordTemplateSection" class="hidden py-8">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">病历书写模板</h3>
+                    <pre id="medicalRecordTemplate" class="bg-gray-50 p-4 rounded-md border border-gray-200 whitespace-pre-wrap"></pre>
+                    <button id="backToHomeBtnFromTemplate" class="mt-4 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">返回首页</button>
+                </div>
+            </section>
         </div>
     </div>
 
     <script>
-        // ========== 【你的EmailJS完整配置，一字未改】 ==========
+        // 初始化EmailJS
         emailjs.init("ULE5P-Qr6l5z2JS6I"); 
         const SERVICE_ID = "service_ytegvpa";
         const TEMPLATE_ID = "template_2uk5olr";
         const TARGET_EMAIL = "ldq229@163.com";
 
-        // ========== 固定用户列表 ==========
+        // ========== 保留完整USER_LIST ==========
         const USER_LIST = [
             {username: "李殿奇", password: "102561"},
             {username: "李展丞", password: "I202120030"},
@@ -126,128 +144,337 @@
             {username: "张圣豪", password: "U202214646"},
             {username: "邹雨成", password: "U202216843"}
         ];
-        // ========== 固定问答列表 ==========
-        const QA_LIST = [
-            {question: "怎么不舒服", keyword: "不舒服,来就诊", answer: "吃饭后右侧腮腺区肿胀不适"},
-            { question: "腮腺肿胀和进食有关吗", keyword: "吃,吃饭,进食", answer: "吃酸性、油腻或者辛辣的食物后迅速肿胀酸胀，以右侧腮腺肿胀为主，肿胀局限于耳朵前面，可以看到这里一下子就肿起来了，没有向外面扩散"},
-            { question: "过敏史", keyword: "过敏", answer: "目前还没有发现对什么药物或者食物过敏史"},
-            { question: "有没有全身疾病", keyword: "既往,全身疾病", answer: "没有高血压、糖尿病、冠心病这些慢性疾病，没有做过手术，也没有输过血"},
-            { question: "牙齿有没有疼痛", keyword: "智牙,智齿,牙齿,口腔情况", answer: "智齿在10年前因为反复发炎而拔除，牙龈没有肿胀不舒服"},
-            { question: "腮腺肿胀发作频率", keyword: "发作,频率", answer: "频率逐渐增加，前2年3-4个月发作1次，近半年每月1-2次，劳累、熬夜、刺激性食物会诱发"},
-            { question: "肿胀会不会自行好转", keyword: "自行,好转", answer: "停止吃东西之后可以慢慢缓解"},
-            { question: "出现症状多久了，发病持续时间", keyword: "出现,症状,多久,发病,持续,时间", answer: "2年前第一次出现这种症状，持续2天；近半年每月发作1-2次，每次持续3-5天，自行按摩或口服消炎药可缓解"},
-            { question: "最近有没有什么变化", keyword: "近来,最近,变化", answer: "最近持续的时间逐渐延长，自行缓解的时间也变长了"},
-            { question: "晨起腮腺区症状及分泌物情况", keyword: "早晨,起床,口水,口干", answer: "早晨起床的时候右侧腮腺稍微有些不舒服，按摩后嘴巴里会流出少量咸味黏稠液体，症状有所缓解；平时没有出现过口干口苦"},
-            { question: "对生活质量的影响", keyword: "生活,影响", answer: "影响吃饭；吃饭后出现面部肿胀，影响工作和生活，对睡眠影响不大"},
-            { question: "既往就诊情况", keyword: "之前,就诊", answer: "1年于社区医院看过，诊断为“腮腺炎”，口服抗生素可以缓解；半年前在当地医院口腔科就诊，考虑“慢性腮腺炎”，予不明清热解毒中成药，症状暂缓解但反复"},
-            { question: "做过什么治疗", keyword: "治疗", answer: "之前口服消炎药和中药，没有做过手术"},
-            { question: "导管扪诊", keyword: "触诊", answer: "触诊结果：右侧颊黏膜下可扪及2cm长粗硬索条状导管，质地韧，按压无明显疼痛，活动度可，与周围组织无粘连"},
-            { question: "导管口检查", keyword: "导管口", answer: "导管口检查结果：（上颌第二磨牙对应颊黏膜处）轻微红肿，黏膜无糜烂溃疡；开口通畅，挤压后流出少量浑浊“雪花样”唾液，夹杂细小黏液栓子，质地黏稠，无鲜血及脓液"},
-            { question: "做了腮腺超声吗", keyword: "超声,彩超,检查", answer: "彩超结果：右侧腮腺体积稍大，实质回声不均，散在低回声区，导管扩张（内径0.3cm），内见少量强回声光点（考虑黏液栓子）；左侧无明显异常。没有做过造影和CT检查"},
-            { question: "查了血常规吗", keyword: "查,血,血常规", answer: "白细胞计数、中性粒细胞比例均正常"}
-        ];
 
-        let chatHistory = [];
-        let currentUser = "";
+        // SP标准化病人核心数据（保留完整qaMapping）
+        const spPatientData = {
+            basicInfo: {姓名: "王芳",性别: "女",年龄: 28,职业: "公司职员"},
+            chiefComplaint: "右侧腮帮子肿胀3天，伴轻微疼痛",
+            presentIllness: {
+                症状持续时间: "肿胀从3天前开始出现，无明显诱因",
+                疼痛特点: "轻微胀痛，按压时疼痛加重，无放射痛",
+                伴随症状: "无发热、头痛，偶有张口紧绷感，无口腔溃疡、牙龈肿痛",
+                症状变化: "晨起肿胀更明显，下午略有缓解，进食后无明显加重",
+                诊疗经过: "自行服用阿莫西林（消炎药），效果不明显",
+                一般情况: "精神、食欲可，睡眠正常，二便无异常"
+            },
+            pastHistory: {
+                既往疾病: "小时候得过腮腺炎，无其他慢性病史",
+                手术外伤史: "无手术、外伤史",
+                过敏史: "无药物、食物过敏史",
+                预防接种史: "半年前接种过流感疫苗，其余按计划接种"
+            },
+            personalHistory: {
+                生活习惯: "不吸烟，偶尔少量饮酒，近期因工作压力大经常熬夜",
+                饮食习惯: "前几天吃过坚果等硬食物，无特殊饮食偏好",
+                月经史: "经期正常，肿胀与月经周期无明显关联"
+            },
+            familyHistory: "无腮腺疾病、传染病等家族遗传史",
+            physicalExam: {
+                肿胀部位: "右侧腮腺区肿胀，左侧对称，皮肤略发红，无破溃",
+                触诊: "肿胀部位质地偏硬，无波动感，无瘙痒、灼热感",
+                其他: "体温36.8℃，心率78次/分，呼吸18次/分，血压120/80mmHg"
+            },
+            // ========== 保留完整qaMapping ==========
+            qaMapping: [
+                {keywords: ["肿胀", "多久", "持续时间", "开始"],answer: "我右侧腮帮子肿起来有3天了，没有明显的原因就肿了。"},
+                {keywords: ["疼痛", "疼", "痛", "按压"],answer: "有轻微的胀痛感，用手按压的时候疼痛会更明显，但是没有往其他地方放射的痛感。"},
+                {keywords: ["发热", "发烧", "体温"],answer: "没有发烧，体温一直都是正常的，大概36.8℃左右。"},
+                {keywords: ["张口", "进食", "吃饭", "影响"],answer: "张口的时候感觉腮帮子有点紧绷，稍微有点影响，但是吃饭的时候没有明显加重肿胀或疼痛。"},
+                {keywords: ["吃药", "治疗", "消炎药", "措施"],answer: "自己在家吃了点阿莫西林，就是普通的消炎药，但是吃了之后没什么明显效果。"},
+                {keywords: ["皮肤", "颜色", "红", "破溃"],answer: "肿胀的地方皮肤稍微有点发红，没有破口，也没有流脓之类的情况。"},
+                {keywords: ["感冒", "上呼吸道", "感染"],answer: "一周前有过轻微的感冒，但是已经好了，不知道是不是和这个有关系。"},
+                {keywords: ["熬夜", "压力", "疲劳", "休息"],answer: "最近工作压力挺大的，经常熬夜加班，休息得不太好。"},
+                {keywords: ["硬食物", "坚果", "咀嚼", "咬"],answer: "前几天吃过坚果，嚼了不少硬东西，当时没感觉，后来就肿了。"},
+                {keywords: ["腮腺炎", "得过", "病史"],answer: "小时候得过腮腺炎，具体几岁记不清了，之后就没再犯过。"},
+                {keywords: ["过敏", "过敏史", "药物过敏"],answer: "没有已知的药物或食物过敏史，平时吃药都没什么问题。"},
+                {keywords: ["月经", "经期", "周期"],answer: "我月经周期挺正常的，这次肿胀好像和月经没什么关系。"},
+                {keywords: ["家族史", "家人", "遗传", "病史"],answer: "家里人没有得过腮腺相关的疾病，也没有什么遗传病。"},
+                {keywords: ["外伤", "撞", "碰"],answer: "没有受过外伤，腮帮子也没有撞到过什么东西。"},
+                {keywords: ["瘙痒", "痒", "灼热", "烫"],answer: "没有瘙痒的感觉，也没有觉得皮肤发烫、灼热。"},
+                {keywords: ["不舒服", "来就诊"],answer: "吃饭后右侧腮腺区肿胀不适"},
+                {keywords: ["吃", "吃饭", "进食"],answer: "吃酸性、油腻或者辛辣的食物后迅速肿胀酸胀，以右侧腮腺肿胀为主，肿胀局限于耳朵前面，可以看到这里一下子就肿起来了，没有向外面扩散"},
+                {keywords: ["过敏"],answer: "目前还没有发现对什么药物或者食物过敏史"},
+                {keywords: ["既往", "全身疾病"],answer: "没有高血压、糖尿病、冠心病这些慢性疾病，没有做过手术，也没有输过血"},
+                {keywords: ["智牙", "智齿", "牙齿", "口腔情况"],answer: "智齿在10年前因为反复发炎而拔除，牙龈没有肿胀不舒服"},
+                {keywords: ["发作", "频率"],answer: "频率逐渐增加，前2年3-4个月发作1次，近半年每月1-2次，劳累、熬夜、刺激性食物会诱发"},
+                {keywords: ["自行", "好转"],answer: "停止吃东西之后可以慢慢缓解"},
+                {keywords: ["出现", "症状", "多久", "发病", "持续", "时间"],answer: "2年前第一次出现这种症状，持续2天；近半年每月发作1-2次，每次持续3-5天，自行按摩或口服消炎药可缓解"},
+                {keywords: ["近来", "最近", "变化"],answer: "最近持续的时间逐渐延长，自行缓解的时间也变长了"},
+                {keywords: ["早晨", "起床", "口水", "口干"],answer: "早晨起床的时候右侧腮腺稍微有些不舒服，按摩后嘴巴里会流出少量咸味黏稠液体，症状有所缓解；平时没有出现过口干口苦"},
+                {keywords: ["生活", "影响"],answer: "影响吃饭；吃饭后出现面部肿胀，影响工作和生活，对睡眠影响不大"},
+                {keywords: ["之前", "就诊"],answer: "1年于社区医院看过，诊断为“腮腺炎”，口服抗生素可以缓解；半年前在当地医院口腔科就诊，考虑“慢性腮腺炎”，予不明清热解毒中成药，症状暂缓解但反复"},
+                {keywords: ["治疗"],answer: "之前口服消炎药和中药，没有做过手术"},
+                {keywords: ["触诊"],answer: "触诊结果：右侧颊黏膜下可扪及2cm长粗硬索条状导管，质地韧，按压无明显疼痛，活动度可，与周围组织无粘连"},
+                {keywords: ["导管口"],answer: "导管口检查结果：（上颌第二磨牙对应颊黏膜处）轻微红肿，黏膜无糜烂溃疡；开口通畅，挤压后流出少量浑浊“雪花样”唾液，夹杂细小黏液栓子，质地黏稠，无鲜血及脓液"},
+                {keywords: ["超声", "彩超", "检查"],answer: "彩超结果：右侧腮腺体积稍大，实质回声不均，散在低回声区，导管扩张（内径0.3cm），内见少量强回声光点（考虑黏液栓子）；左侧无明显异常。没有做过造影和CT检查"},
+                {keywords: ["查", "血", "血常规"],answer: "白细胞计数、中性粒细胞比例均在正常范围，无明显感染指征；血沉、C反应蛋白也无异常"}
+            ]
+        };
 
-        // 登录验证
-        function login() {
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
-            const user = USER_LIST.find(u => u.username === username && u.password === password);
-            if (user) {
-                currentUser = username;
-                alert(` ${username}医生，你好`);
-                document.getElementById("login-box").style.display = "none";
-                document.getElementById("qa-box").style.display = "block";
-                loadChatHistory();
+        // 病历书写模板
+        const medicalRecordTemplate = `
+### 病历书写模板
+1. 一般项目：姓名：______ 性别：______ 年龄：______ 职业：______
+2. 主诉：______
+3. 现病史：
+   起病时间：______ 起病诱因：______
+   主要症状特点：______
+   伴随症状：______
+   诊疗经过：______
+   一般情况：______
+4. 既往史：______
+5. 个⼈史：______
+6. 家族史：______
+7. 体格检查（关键体征）：______
+8. 初步诊断：______
+        `;
+
+        // 练习状态管理
+        const practiceState = {
+            conversation: [], // 存储对话记录
+            isPracticing: false
+        };
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                showApp(user);
             } else {
-                alert("账号或密码错误！");
+                showLogin();
             }
-        }
-        // 加载本地存储的聊天记录
-        function loadChatHistory() {
-            const storedHistory = localStorage.getItem(`chat_${currentUser}`);
-            if (storedHistory) {
-                chatHistory = JSON.parse(storedHistory);
-                renderChatHistory();
-            }
-        }
-        // 保存聊天记录到本地存储
-        function saveChatHistory() {
-            if (currentUser) {
-                localStorage.setItem(`chat_${currentUser}`, JSON.stringify(chatHistory));
-            }
-        }
-        // 渲染聊天记录
-        function renderChatHistory() {
-            const resultDom = document.getElementById("result");
-            let html = "";
-            chatHistory.forEach(msg => {
-                if (msg.role === "doctor") {
-                    html += `<div class="msg-doctor"><div class="content">${msg.content}</div></div>`;
-                } else if (msg.role === "patient") {
-                    html += `<div class="msg-patient"><div class="content">${msg.content}</div></div>`;
+            bindAllEvents();
+        });
+        
+        // 事件绑定统一管理
+        function bindAllEvents(){
+            // 登录提交
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleLogin();
+            });
+            
+            // 退出登录
+            document.getElementById('logoutBtn').addEventListener('click', function(){
+                if(confirm('确定要退出登录吗？')){
+                    sendPracticeRecordEmail();
+                    setTimeout(()=>{
+                        localStorage.removeItem('currentUser');
+                        localStorage.removeItem('loginTime'); // 清除登录时间
+                        showLogin();
+                    },800)
                 }
             });
-            resultDom.innerHTML = html;
-            resultDom.scrollTop = resultDom.scrollHeight;
+            
+            // 开始问诊练习
+            document.getElementById('startPracticeBtn').addEventListener('click', startPractice);
+            
+            // 提问按钮
+            document.getElementById('askQuestionBtn').addEventListener('click', handleAskQuestion);
+            // 回车提问
+            document.getElementById('userQuestionInput').addEventListener('keydown', e=>{
+                if (e.key === 'Enter') handleAskQuestion();
+            });
+            
+            // 重置练习
+            document.getElementById('resetPracticeBtn').addEventListener('click', resetPractice);
+            
+            // 查看病历模板
+            document.getElementById('viewRecordTemplateBtn').addEventListener('click', function() {
+                showSection('recordTemplateSection');
+                document.getElementById('medicalRecordTemplate').textContent = medicalRecordTemplate;
+            });
+            
+            // 返回首页
+            document.getElementById('backToHomeBtn').addEventListener('click', function() {
+                showSection('homeSection');
+            });
+            
+            // 结束问诊
+            document.getElementById('endPracticeBtn').addEventListener('click', function() {
+                if (confirm('确定结束问诊并退出系统吗？')) {
+                    sendPracticeRecordEmail();
+                    setTimeout(()=>{
+                        localStorage.removeItem('currentUser');
+                        localStorage.removeItem('loginTime');
+                        showLogin();
+                    },800)
+                }
+            });
+            
+            // 从模板页返回首页
+            document.getElementById('backToHomeBtnFromTemplate').addEventListener('click', ()=>showSection('homeSection'));
         }
-        // 问诊提问匹配答案
-        function queryAnswer() {
-            const inputText = document.getElementById("input-text").value.trim();
-            if (!inputText) {
-                alert("请输入问题！");
+
+        // 显示登录页
+        function showLogin() {
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('app').classList.add('hidden');
+        }
+        
+        // 显示应用页
+        function showApp(user) {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            document.getElementById('userNameDisplay').textContent = user.username;
+            showSection('homeSection'); // 默认显示首页
+        }
+        
+        // 处理登录逻辑（补充登录时间记录）
+        function handleLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('errorMessage');
+            
+            if (!username || !password) {
+                errorMsg.textContent = '请输入用户名和密码';
+                errorMsg.classList.remove('hidden');
                 return;
             }
-            chatHistory.push({role: "doctor", content: inputText});
-            const inputWords = inputText.split(/[\s,，。？！]/).filter(word => word.length > 0);
-            const matchResult = [];
-            QA_LIST.forEach(qa => {
-                const qaKeywords = qa.keyword.split(",").map(k => k.trim());
-                let matchCount = 0;
-                inputWords.forEach(word => {
-                    if (qaKeywords.some(k => k.includes(word) || word.includes(k))) matchCount++;
-                });
-                if (matchCount > 0) matchResult.push({ ...qa, matchCount });
-            });
-            matchResult.sort((a, b) => b.matchCount - a.matchCount);
-            chatHistory.push({
-                role: "patient",
-                content: matchResult.length > 0 ? matchResult[0].answer : "不好意思，没听懂您的意思"
-            });
-            saveChatHistory();
-            document.getElementById("input-text").value = "";
-            renderChatHistory();
+            
+            const user = USER_LIST.find(u => u.username === username && u.password === password);
+            if (user) {
+                errorMsg.classList.add('hidden');
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                // 记录登录时间
+                localStorage.setItem('loginTime', new Date().toLocaleString('zh-CN'));
+                showApp(user);
+            } else {
+                errorMsg.textContent = '用户名或密码错误';
+                errorMsg.classList.remove('hidden');
+            }
         }
 
-        // ========== 【核心修复】EmailJS发送邮件 - 完美匹配你的模板 ==========
-        function sendChatHistoryByEmail() {
-            if (!currentUser) { alert("请先登录！"); return; }
-            if (chatHistory.length === 0) { alert("暂无问诊记录可发送！"); return; }
+        // 显示指定区域
+        function showSection(sectionId) {
+            // 隐藏所有区域
+            document.getElementById('homeSection').classList.add('hidden');
+            document.getElementById('spPracticeSection').classList.add('hidden');
+            document.getElementById('recordTemplateSection').classList.add('hidden');
+            // 显示目标区域
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
 
-            // 1. 格式化问答记录，排版工整
-            let historyContent = "";
-            chatHistory.forEach((item, idx) => {
-                const role = item.role === "doctor" ? "医生提问" : "患者回答";
-                historyContent += `${idx+1}. ${role}：${item.content}\n`;
+        // 开始问诊练习
+        function startPractice() {
+            showSection('spPracticeSection');
+            practiceState.isPracticing = true;
+            practiceState.conversation = []; // 清空历史对话
+            document.getElementById('conversationContainer').innerHTML = '';
+            document.getElementById('userQuestionInput').value = '';
+            
+            // 初始化欢迎语
+            const welcomeMsg = {
+                role: 'sp',
+                content: '您好，我是王芳，今年28岁，我右侧腮帮子肿了3天，还有点轻微的疼。'
+            };
+            practiceState.conversation.push(welcomeMsg);
+            renderConversation();
+        }
+
+        // 处理提问逻辑
+        function handleAskQuestion() {
+            const input = document.getElementById('userQuestionInput');
+            const question = input.value.trim();
+            
+            if (!question || !practiceState.isPracticing) return;
+            
+            // 添加用户问题到对话
+            const userMsg = {role: 'student', content: question};
+            practiceState.conversation.push(userMsg);
+            input.value = '';
+            
+            // 获取SP回答
+            const spAnswer = getSpAnswer(question);
+            const spMsg = {role: 'sp', content: spAnswer};
+            practiceState.conversation.push(spMsg);
+            
+            // 渲染对话
+            renderConversation();
+        }
+
+        // 获取SP回答
+        function getSpAnswer(question) {
+            // 匹配关键词
+            for (const qa of spPatientData.qaMapping) {
+                if (qa.keywords.some(keyword => question.includes(keyword))) {
+                    return qa.answer;
+                }
+            }
+            // 无匹配时的默认回答
+            return '不好意思，我不太清楚你问的是什么，能不能换个方式问？';
+        }
+
+        // 渲染对话
+        function renderConversation() {
+            const container = document.getElementById('conversationContainer');
+            container.innerHTML = '';
+            
+            practiceState.conversation.forEach(msg => {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = msg.role === 'student' 
+                    ? 'flex justify-end' 
+                    : 'flex justify-start';
+                
+                const bubble = document.createElement('div');
+                bubble.className = msg.role === 'student'
+                    ? 'bg-blue-600 text-white p-3 rounded-lg max-w-[70%]'
+                    : 'bg-gray-200 text-gray-800 p-3 rounded-lg max-w-[70%]';
+                bubble.textContent = msg.content;
+                
+                msgDiv.appendChild(bubble);
+                container.appendChild(msgDiv);
             });
+            
+            // 滚动到底部
+            container.scrollTop = container.scrollHeight;
+        }
 
-            // 2. 组装邮件参数【变量名和你的EmailJS模板1:1对应，重中之重】
-            const emailParams = {
-                login_name: currentUser,  // 登录的医生姓名
-                to_email: TARGET_EMAIL,   // 接收邮箱 ldq229@163.com
-                send_time: new Date().toLocaleString('zh-CN'), // 发送时间 年月日时分秒
-                history_data: historyContent // 完整的问答历史记录
+        // 重置练习
+        function resetPractice() {
+            if (confirm('确定要重置本次练习吗？')) {
+                startPractice();
+            }
+        }
+
+        // 发送练习记录邮件（修复空邮件问题）
+        function sendPracticeRecordEmail() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if(!currentUser) return;
+
+            // 1. 格式化对话记录
+            let conversationHistory = "";
+            if(practiceState.conversation.length === 0){
+                conversationHistory = "本次练习暂无问诊对话记录";
+            }else{
+                practiceState.conversation.forEach((msg, index) => {
+                    const roleName = msg.role === 'student' ? "医学生" : "标准化病人(王芳)";
+                    conversationHistory += `${index + 1}. ${roleName}：${msg.content}\n`;
+                });
+            }
+
+            // 2. 获取时间
+            const loginTime = localStorage.getItem('loginTime') || "未记录";
+            const logoutTime = new Date().toLocaleString('zh-CN');
+
+            // 3. 模板参数（匹配EmailJS模板变量）
+            const templateParams = {
+                user_name: currentUser.username,
+                target_email: TARGET_EMAIL,
+                logout_time: logoutTime,
+                login_time: loginTime,
+                conversation_history: conversationHistory
             };
 
-            // 3. 调用EmailJS发送邮件
-            emailjs.send(SERVICE_ID, TEMPLATE_ID, emailParams)
-                .then(() => {
-                    alert(`✅ 发送成功！问诊记录已发送至 ${TARGET_EMAIL}`);
-                }, (error) => {
-                    alert(`❌ 发送失败：${error.text}`);
-                    console.log("邮件发送错误信息：", error);
+            emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams)
+                .then(res => {
+                    console.log('✅ 邮件发送成功:', res);
+                    alert('✅ 问诊记录已成功发送至指定邮箱！');
+                })
+                .catch(err => {
+                    console.error('❌ 邮件发送失败:', err);
+                    alert('⚠️ 邮件发送失败，请稍后重试！');
                 });
         }
     </script>
