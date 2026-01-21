@@ -48,10 +48,10 @@
             <section id="homeSection" class="py-8">
                 <div class="bg-white rounded-lg shadow-md p-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">SP标准化病人问诊练习</h2>
-                    <p class="text-gray-600 mb-6">欢迎使用医疗问诊练习平台，点击下方按钮开始SP标准化病人场景问诊练习</p>
+                    <p class="text-gray-600 mb-6">欢迎使用医疗问诊练习平台，点击下方按钮开始随机SP标准化病人场景问诊练习</p>
                     <div class="flex flex-wrap gap-4">
                         <button id="startPracticeBtn" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 flex items-center">
-                            <i class="fas fa-play mr-2"></i> 开始问诊练习
+                            <i class="fas fa-play mr-2"></i> 开始随机问诊练习
                         </button>
                         <button id="viewRecordTemplateBtn" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 flex items-center">
                             <i class="fas fa-file-alt mr-2"></i> 查看病历模板
@@ -64,7 +64,11 @@
             <section id="spPracticeSection" class="hidden py-8">
                 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-gray-800">SP标准化病人问诊 - 王芳（女，28岁）</h3>
+                        <h3 id="patientTitle" class="text-xl font-bold text-gray-800">SP标准化病人问诊 - 加载中...</h3>
+                    </div>
+                    <!-- 患者基本信息卡片 -->
+                    <div id="patientInfoCard" class="bg-blue-50 p-4 rounded-md mb-4 border-l-4 border-blue-500">
+                        <p class="text-sm"><strong>基本信息：</strong><span id="patientBasicInfo"></span></p>
                     </div>
                     <!-- 对话容器 -->
                     <div id="conversationContainer" class="border border-gray-200 rounded-md p-4 h-[400px] overflow-y-auto mb-4 bg-gray-50 space-y-4"></div>
@@ -74,9 +78,10 @@
                     </div>
                     <!-- 提问输入 -->
                     <div class="flex gap-2">
-                        <input type="text" id="userQuestionInput" class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="请输入您的问诊问题（例如：怎么不舒服？  症状出现多久了？等）">
+                        <input type="text" id="userQuestionInput" class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="请输入您的问诊问题（例如：怎么不舒服？症状持续多久了？等）">
                         <button id="askQuestionBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">提问</button>
                         <button id="resetPracticeBtn" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">重置练习</button>
+                        <button id="switchSceneBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700">换场景</button>
                     </div>
                 </div>
                 <div class="flex gap-3">
@@ -105,7 +110,14 @@
         const TEMPLATE_ID = "template_2uk5olr";
         const TARGET_EMAIL = "ldq229@163.com";
 
-        // ========== 保留完整USER_LIST ==========
+        // 全局变量
+        let currentUser = "";
+        let loginTime = "";
+        let conversationHistory = [];
+        let currentPatient = null; // 存储当前选中的患者场景
+        const patientKeys = ["wangfang", "liwanqing", "zhangaiguo", "wangzhenyu"];
+
+        // ========== 用户列表 ==========
         const USER_LIST = [
             {username: "李殿奇", password: "102561"},
             {username: "李展丞", password: "I202120030"},
@@ -145,343 +157,536 @@
             {username: "邹雨成", password: "U202216843"}
         ];
 
-        // 【核心整合】SP标准化病人核心数据
-        const spPatientData = {
-            basicInfo: {姓名: "王芳",性别: "女",年龄: 28,职业: "公司职员"},
-            chiefComplaint: "左侧腮帮子肿胀3天，伴轻微疼痛",
-            presentIllness: {
-                症状持续时间: "肿胀从3天前开始出现，无明显诱因",
-                疼痛特点: "轻微胀痛，按压时疼痛加重，无放射痛",
-                伴随症状: "无发热、头痛，偶有张口紧绷感，无口腔溃疡、牙龈肿痛",
-                症状变化: "晨起肿胀更明显，下午略有缓解，进食后无明显加重",
-                诊疗经过: "自行服用阿莫西林（消炎药），效果不明显",
-                一般情况: "精神、食欲可，睡眠正常，二便无异常"
+        // ========== 四位患者完整数据 ==========
+        const spPatients = {
+            // 慢性阻塞性腮腺炎 - 王芳
+            wangfang: {
+                diseaseType: "慢性阻塞性腮腺炎",
+                basicInfo: {姓名: "王芳",性别: "女",年龄: 28,职业: "公司职员"},
+                chiefComplaint: "左侧腮帮子肿胀3天，伴轻微疼痛",
+                presentIllness: {
+                    症状持续时间: "肿胀从3天前开始出现，无明显诱因",
+                    疼痛特点: "轻微胀痛，按压时疼痛加重，无放射痛",
+                    伴随症状: "无发热、头痛，偶有张口紧绷感，无口腔溃疡、牙龈肿痛",
+                    症状变化: "晨起肿胀更明显，下午略有缓解，进食后无明显加重",
+                    诊疗经过: "自行服用阿莫西林（消炎药），效果不明显",
+                    一般情况: "精神、食欲可，睡眠正常，二便无异常"
+                },
+                pastHistory: {
+                    既往疾病: "小时候得过腮腺炎，无其他慢性病史",
+                    手术外伤史: "无手术、外伤史",
+                    过敏史: "无药物、食物过敏史",
+                    预防接种史: "半年前接种过流感疫苗，其余按计划接种"
+                },
+                personalHistory: {
+                    生活习惯: "不吸烟，偶尔少量饮酒，近期因工作压力大经常熬夜",
+                    饮食习惯: "前几天吃过坚果等硬食物，无特殊饮食偏好",
+                    月经史: "经期正常，肿胀与月经周期无明显关联"
+                },
+                familyHistory: "无腮腺疾病、传染病等家族遗传史",
+                physicalExam: {
+                    肿胀部位: "左侧腮腺区肿胀，左侧对称，皮肤略发红，无破溃",
+                    触诊: "肿胀部位质地偏硬，无波动感，无瘙痒、灼热感",
+                    其他: "体温36.8℃，心率78次/分，呼吸18次/分，血压120/80mmHg"
+                },
+                qaMapping: [
+                    {keywords: ["多久缓解","多久能缓解","缓解要多久","肿胀时间", "持续"],answer: "最近持续的时间逐渐延长，自行缓解的时间也变长了，以前2个小时能消肿，现在几天都没有完全消肿"},
+                    {keywords: ["多久", "起始时间", "患病时间", "发病时间"],answer: "我这次左侧腮帮子肿起来有3天了。"},
+                    {keywords: ["婚姻", "结婚"],answer: "已婚。"},
+                    {keywords: ["个人信息"],answer: "我叫王芳，今年28岁，已婚，武汉人，汉族，是公司职员。"},
+                    {keywords: ["年龄", "多少岁"],answer: "28岁。"},
+                    {keywords: ["工作情况"],answer: "我是公司职员。"},
+                    {keywords: ["籍贯", "哪里人"],answer: "我是武汉人。"},
+                    {keywords: ["民族", "什么族"],answer: "我是汉族人。"},
+                    {keywords: ["联系方式", "电话"],answer: "我的电话是13300003333。"},
+                    {keywords: ["疼痛", "疼", "痛", "按压"],answer: "有轻微的胀痛感，用手按压的时候疼痛会更明显，但是没有往其他地方放射的痛感。"},
+                    {keywords: ["发热", "发烧",  "体温有什么变化", "体温"],answer: "没有发烧，体温一直都是正常的，大概36.8℃左右。"},
+                    {keywords: ["张口", "吃", "吃什么", "食物", "进食", "吃饭", "影响", "咀嚼", "咬"],answer: "吃酸性、油腻或者辛辣的食物后，感觉左侧耳朵周围马上肿胀起来；张口的时候感觉腮帮子有点紧绷，吃饭之后肿胀和疼痛会有明显加重。"},
+                    {keywords: ["吃药", "治疗", "消炎", "消炎药", "措施"],answer: "自己在家吃了点阿莫西林，就是普通的消炎药，但是吃了之后没什么明显效果。"},
+                    {keywords: ["皮肤", "颜色", "红", "破溃"],answer: "肿胀的地方皮肤稍微有点发红，没有破口，也没有流脓之类的情况。"},
+                    {keywords: ["感冒", "上呼吸道", "感染"],answer: "一周前有过轻微的感冒，但是已经好了，不知道和这个病有没有关系。"},
+                    {keywords: ["熬夜", "压力", "疲劳", "休息"],answer: "最近工作压力挺大的，经常熬夜加班，休息得不太好。"},
+                    {keywords: ["腮腺炎", "类似症状", "得过", "病史"],answer: "小时候得过腮腺炎，具体几岁记不清了，之后就没再犯过。"},
+                    {keywords: ["过敏", "过敏史", "药物过敏"],answer: "目前还没有发现过什么药物或食物过敏，平时吃药都没什么问题。"},
+                    {keywords: ["月经", "经期"],answer: "我月经周期挺正常的，这次肿胀好像和月经没什么关系。"},
+                    {keywords: ["家族史", "家人", "遗传", "病史"],answer: "家里人没有得过腮腺相关的疾病，也没有什么遗传病。"},
+                    {keywords: ["外伤", "撞", "碰"],answer: "没有受过外伤，腮帮子也没有撞到过什么东西。"},
+                    {keywords: ["瘙痒", "痒", "灼热", "烫"],answer: "没有瘙痒的感觉，也没有觉得皮肤发烫。"},
+                    {keywords: ["既往史", "既往疾病", "全身", "全身情况", "全身疾病"],answer: "没有高血压、糖尿病、冠心病这些慢性疾病，没有做过手术，也没有输过血"},
+                    {keywords: ["智牙", "智齿", "牙齿", "牙齿不舒服", "义齿", "义齿修复", "口腔情况"],answer: "智齿在5年前因为反复发炎都拔掉了，没有假牙，牙龈也没有肿胀不舒服"},
+                    {keywords: ["发作情况", "次数", "增加", "频繁", "频率"],answer: "频率逐渐增加，前2年3-4个月发作1次，近半年每月1-2次，劳累、熬夜、刺激性食物会诱发"},
+                    {keywords: ["自行", "自行缓解", "好转"],answer: "停止吃东西之后可以慢慢缓解"},
+                    {keywords: ["症状", "多久", "发病", "持续", "时间"],answer: "2年前第一次出现这种症状，偶尔会出现，每次持续1-2天；最近一个月发作频繁，每次持续3-5天"},
+                    {keywords: ["早晨", "起床", "口水", "口干", "口苦"],answer: "早晨起床的时候左侧腮腺稍微有些不舒服，按摩后嘴巴里会流出少量咸味黏稠液体，症状会有所缓解；平时没有出现过口干口苦"},
+                    {keywords: ["生活", "生活质量", "影响"],answer: "影响吃饭；吃饭后出现面部肿胀，影响工作和生活，对睡眠影响不大"},
+                    {keywords: ["之前", "既往就诊", "以前看过", "既往治疗", "就诊"],answer: "1年前因为类似症状在社区医院看过，口服抗生素之后缓解；一个月前肿胀发作变的频繁，在当地医院口腔科就诊，诊断为“慢性腮腺炎”，使用消炎药症状可以暂时缓解，但肿胀会反复"},
+                    {keywords: ["吃过什么药","用过什么药","治疗"],answer: "之前口服消炎药和中成药，没有做过手术"},
+                    {keywords: ["触诊"],answer: "触诊结果：左侧腮腺区肿胀，肿胀部位质地偏硬，无波动感，无瘙痒、灼热感；左侧颊黏膜下可扪及粗硬、条索状导管，与周围组织无明显粘连；右侧基本正常"},
+                    {keywords: ["导管口"],answer: "导管口检查结果：左侧（上颌第二磨牙对应颊黏膜处）轻微红肿，黏膜无糜烂溃疡；导管口通畅，挤压后流出少量浑浊唾液，夹杂细小黏液栓子；右侧基本正常"},
+                    {keywords: ["超声", "彩超", "检查"],answer: "彩超结果：左侧腮腺体积稍大，实质回声不均，散在低回声区，导管扩张（内径0.3cm），内见少量强回声光点（考虑黏液栓子）；右侧无明显异常。没有做过造影和CT检查"},
+                    {keywords: ["查", "血", "血常规"],answer: "昨天查的血常规，白细胞计数在正常范围；C反应蛋白没有明显异常；淀粉酶有轻度升高"},
+                    {keywords: ["体重", "变化"],answer: "近3个月体重没有明显变化，大概维持在52公斤左右"},
+                    {keywords: ["饮水", "喝水"],answer: "每天喝水大概3杯（1500毫升）左右"},
+                    {keywords: ["运动", "锻炼"],answer: "平时很少运动，基本都是久坐办公，周末偶尔会散步"},
+                    {keywords: ["不舒服", "来就诊"],answer: "吃饭后右侧腮腺区肿胀不适"},
+                    {keywords: ["睡眠", "睡觉"],answer: "每天睡大概7小时，入睡还算顺利，就是偶尔会因为腮帮子不舒服醒过来"}
+                ]
             },
-            pastHistory: {
-                既往疾病: "小时候得过腮腺炎，无其他慢性病史",
-                手术外伤史: "无手术、外伤史",
-                过敏史: "无药物、食物过敏史",
-                预防接种史: "半年前接种过流感疫苗，其余按计划接种"
+            // 舍格伦综合征 - 李婉清
+            liwanqing: {
+                diseaseType: "舍格伦综合征",
+                basicInfo: {姓名: "李婉清",性别: "女",年龄: 58,职业: "退休教师"},
+                chiefComplaint: "口干、眼干1年半，双侧腮腺肿胀3个月",
+                presentIllness: {
+                    症状持续时间: "口干1年半，眼干8个月，腮腺肿胀3个月",
+                    疼痛特点: "双侧腮腺轻微胀痛，无剧烈疼痛，口干严重时咽喉隐痛",
+                    伴随症状: "偶有低热（37.3-37.5℃），手指关节轻微酸痛，鼻腔干燥易出血",
+                    症状变化: "症状持续加重，无缓解期，劳累/感冒后更明显",
+                    诊疗经过: "服用滋阴生津中成药、人工泪液，效果一般",
+                    一般情况: "食欲下降，体重略降，睡眠差（夜间口干醒2-3次）"
+                },
+                pastHistory: {
+                    既往疾病: "轻度贫血（半年前发现），无其他慢性病史",
+                    手术外伤史: "无手术、外伤史",
+                    过敏史: "无药物、食物过敏史",
+                    预防接种史: "按计划接种"
+                },
+                personalHistory: {
+                    生活习惯: "不吸烟、不饮酒，工作压力曾较大，现退休",
+                    饮食习惯: "因口干偏好软食、流食，忌辛辣干燥食物",
+                    月经史: "已绝经，经量减少多年"
+                },
+                familyHistory: "母亲有干燥性鼻炎，无舍格伦综合征等自身免疫病史",
+                physicalExam: {
+                    肿胀部位: "双侧腮腺轻度肿大，皮肤正常，无破溃",
+                    触诊: "腮腺质地中等，表面光滑，轻微酸胀感",
+                    其他: "体温37.2℃，心率75次/分，血压130/85mmHg，贫血貌"
+                },
+                qaMapping: [
+                    {keywords: ["多久缓解","多久能缓解","缓解要多久","近来", "最近"],answer: "口干、眼干症状持续加重，没有明显自行缓解的情况，夜间会因口干醒来，喝水后只能短暂缓解1-2小时。"},
+                    {keywords: ["多久", "起始时间"],answer: "口干症状大概出现有1年半了，眼干是近8个月才明显起来的，双侧腮腺肿胀有3个月左右。"},
+                    {keywords: ["疼痛", "疼", "痛", "按压"],answer: "双侧腮腺有轻微胀痛感，按压时痛感不明显，无剧烈疼痛，也没有放射痛，口干严重时咽喉会有隐痛。"},
+                    {keywords: ["发热", "发烧",  "体温有什么变化", "体温"],answer: "偶尔会有低热，体温大概37.3-37.5℃，持续1-2天可自行恢复，没有高热、畏寒的情况。"},
+                    {keywords: ["张口", "进食", "吃饭", "影响"],answer: "张口不受影响，但进食干性食物（如馒头、饼干）时困难，必须喝水才能咽下，进食后口干症状会加重。"},
+                    {keywords: ["吃药", "治疗", "消炎药", "措施"],answer: "吃过一段时间滋阴生津的中成药，口干症状稍微改善，但停药后反复；也用过人工泪液缓解眼干，效果一般。"},
+                    {keywords: ["皮肤", "颜色", "红", "破溃"],answer: "双侧腮腺肿胀部位皮肤颜色正常，无发红、发烫，皮肤表面光滑，没有破口、流脓的情况。"},
+                    {keywords: ["感冒", "上呼吸道", "感染"],answer: "感冒频率比以前高，大概每月会有1次轻微感冒，且感冒后口干、眼干症状会明显加重，恢复时间变长。"},
+                    {keywords: ["熬夜", "压力", "疲劳", "休息"],answer: "平时工作压力较大，偶尔熬夜，疲劳后口干、眼干及腮腺不适会加重，休息后无明显缓解。"},
+                    {keywords: ["硬食物", "坚果", "咀嚼", "咬"],answer: "基本不吃硬食物，坚果、硬糖等咀嚼时会加重口干，还可能引发腮腺轻微胀痛，平时以软食、流食为主。"},
+                    {keywords: ["舍格伦综合征", "得过", "病史"],answer: "之前没有确诊过舍格伦综合征，最初以为是上火，后来症状持续不缓解才去医院检查，医生怀疑是这个病。"},
+                    {keywords: ["过敏", "过敏史", "药物过敏"],answer: "无药物、食物过敏史，平时服用中成药、使用人工泪液都没有不良反应。"},
+                    {keywords: ["月经", "经期"],answer: "我是女性，月经周期基本规律，但经量有所减少，症状发作与经期无明显关联。"},
+                    {keywords: ["家族史", "家人", "遗传", "病史"],answer: "母亲有干燥性鼻炎，不确定是否相关，家里其他人没有确诊过舍格伦综合征及其他自身免疫性疾病。"},
+                    {keywords: ["外伤", "撞", "碰"],answer: "腮腺及头面部没有受过外伤，肿胀是缓慢出现并逐渐加重的，并非外伤诱发。"},
+                    {keywords: ["瘙痒", "痒", "灼热", "烫"],answer: "无皮肤瘙痒感，腮腺部位无灼热、发烫，眼部有干涩、异物感，偶尔伴轻微灼热感。"},
+                    {keywords: ["吃", "吃饭", "进食"],answer: "进食辛辣、干燥、过咸食物后，口干、咽喉不适会加重，进食清淡、湿润食物时症状相对缓和。"},
+                    {keywords: ["既往", "全身疾病"],answer: "没有高血压、糖尿病、冠心病等慢性病史，无手术、输血史，半年前查出有轻度贫血，未特殊治疗。"},
+                    {keywords: ["智牙", "智齿", "牙齿", "牙齿不舒服", "口腔情况"],answer: "智齿已全部拔除，因长期口干，牙齿容易龋坏，有2颗磨牙做过补牙治疗，牙龈无明显肿胀不适。"},
+                    {keywords: ["发作", "频率"],answer: "口干、眼干症状持续存在，无明显发作间隔，腮腺肿胀呈间歇性，每月发作2-3次，劳累、感冒、进食刺激性食物会诱发加重。"},
+                    {keywords: ["自行", "自己", "好转"],answer: "症状无明显自行好转趋势，只能通过喝水、使用人工泪液、调整饮食暂时缓解，无法彻底改善。"},
+                    {keywords: ["之前", "症状", "多久", "发病", "持续", "时间"],answer: "1年半前首次出现口干，初期仅晨起明显，后来全天都有症状；8个月前出现眼干；3个月前开始出现双侧腮腺肿胀，症状持续加重，无缓解期。"},
+                    {keywords: ["早晨", "起床", "口水", "口干", "口苦"],answer: "早晨起床口干、口苦症状最明显，口腔内唾液黏稠，几乎无清水样口水，需要立刻喝水缓解；眼部也会因干涩难以睁开，需使用人工泪液。"},
+                    {keywords: ["生活", "影响"],answer: "严重影响日常生活，白天需频繁喝水，无法长时间说话、工作；眼部干涩影响视物，夜间因口干频繁醒来，睡眠质量下降；社交、进食均受限制。"},
+                    {keywords: ["之前", "就诊"],answer: "半年前因口干、眼干在社区医院就诊，诊断为“上火”，开了清热解毒药物，服用后无效果；1个月前到三甲医院口腔科及风湿免疫科就诊，怀疑舍格伦综合征，建议完善相关检查。"},
+                    {keywords: ["吃过什么药","用过什么药","治疗"],answer: "口服过滋阴生津、清热解毒的中成药，外用人工泪液、人工唾液缓解症状，未使用过激素及免疫抑制剂，无手术治疗史。"},
+                    {keywords: ["触诊"],answer: "触诊结果：双侧腮腺轻度肿大，质地中等，表面光滑，按压有轻微酸胀感，无明显结节，活动度可，与周围组织无粘连；颌下腺无肿大、压痛。"},
+                    {keywords: ["导管口"],answer: "导管口检查结果：双侧腮腺导管口无红肿、糜烂，黏膜色泽正常，挤压腮腺后流出少量清亮唾液，分泌量明显减少；颌下腺导管口分泌正常。"},
+                    {keywords: ["超声", "彩超", "检查"],answer: "彩超结果：双侧腮腺体积稍大，实质回声不均匀，呈弥漫性低回声改变，导管无明显扩张，未见明显结石及占位性病变；双侧颌下腺未见异常。"},
+                    {keywords: ["查", "血", "血常规"],answer: "1周前查血常规，血红蛋白轻度降低（105g/L），白细胞计数、中性粒细胞比例正常，C反应蛋白轻度升高（10mg/L）；自身抗体检查显示抗SSA抗体阳性，抗SSB抗体弱阳性。"},
+                    {keywords: ["体重", "变化"],answer: "近3个月体重下降约3公斤，主要因口干影响食欲，进食量减少，无明显消瘦迹象。"},
+                    {keywords: ["饮水", "喝水"],answer: "每天喝水约2500-3000毫升，分多次小口饮用，夜间需起床喝水2-3次，否则口干难以忍受。"},
+                    {keywords: ["运动", "锻炼"],answer: "平时很少运动，因口干、乏力，运动后会加重不适，偶尔散步10-15分钟，身体抵抗力较弱。"},
+                    {keywords: ["不舒服", "来就诊"],answer: "口干、眼干持续加重，伴随双侧腮腺反复肿胀，影响进食和睡眠，怀疑有特殊疾病，来医院明确诊断并治疗。"},
+                    {keywords: ["睡眠", "睡觉"],answer: "每天睡眠5-6小时，入睡困难，夜间因口干频繁醒来，醒来后需喝水才能再次入睡，睡眠浅、易醒。"},
+                    {keywords: ["唾液", "口水", "分泌"],answer: "唾液分泌量明显减少，平时口腔干燥，仅能分泌少量黏稠唾液，进食时唾液分泌也无法满足咀嚼、吞咽需求，需借助饮水。"},
+                    {keywords: ["吞咽", "吞咽困难"],answer: "吞咽干性食物时困难，需喝水辅助，吞咽流食、半流食无明显不适，无呛咳、吞咽疼痛症状。"},
+                    {keywords: ["眼部", "眼睛", "视力"],answer: "眼睛持续干涩、有异物感，晨起分泌物增多，视物久后会模糊、疲劳，视力无明显下降，无眼痛、畏光症状。"},
+                    {keywords: ["关节", "肌肉", "酸痛"],answer: "偶尔会出现手指关节轻微酸痛、僵硬，持续1-2天可自行缓解，无红肿、畸形，肌肉无明显酸痛感。"},
+                    {keywords: ["鼻腔", "咽喉", "黏膜"],answer: "鼻腔干燥、易出血，咽喉部干涩、有异物感，说话多后会声音嘶哑，无咽痛、咳嗽症状。"}
+                ]
             },
-            personalHistory: {
-                生活习惯: "不吸烟，偶尔少量饮酒，近期因工作压力大经常熬夜",
-                饮食习惯: "前几天吃过坚果等硬食物，无特殊饮食偏好",
-                月经史: "经期正常，肿胀与月经周期无明显关联"
+            // 颌下腺导管结石 - 张爱国
+            zhangaiguo: {
+                diseaseType: "颌下腺导管结石",
+                basicInfo: {姓名: "张爱国",性别: "男",年龄: 45,职业: "企业管理人员"},
+                chiefComplaint: "下颌下区反复肿胀疼痛3个月，加重4天",
+                presentIllness: {
+                    症状持续时间: "肿胀3个月，本次加重4天",
+                    疼痛特点: "进食后酸胀疼痛加重，按压下颌角前方痛感明显",
+                    伴随症状: "无发热，晨起下颌发沉，按摩有咸味黏稠唾液流出",
+                    症状变化: "发作频率升高（从1月1次到每周1-2次），缓解时间延长",
+                    诊疗经过: "口服头孢类消炎药，症状反复",
+                    一般情况: "食欲正常，体重无变化，睡眠基本正常"
+                },
+                pastHistory: {
+                    既往疾病: "无慢性病史",
+                    手术外伤史: "无手术、外伤史",
+                    过敏史: "无药物、食物过敏史",
+                    预防接种史: "按计划接种"
+                },
+                personalHistory: {
+                    生活习惯: "吸烟20年（每天10支），偶尔饮酒，近期备考压力大、熬夜",
+                    饮食习惯: "喜食坚果、辛辣食物",
+                    月经史: "无（男性）"
+                },
+                familyHistory: "无颌下腺疾病、结石遗传病史",
+                physicalExam: {
+                    肿胀部位: "右侧下颌下区肿胀，皮肤正常，无破溃",
+                    触诊: "颌下腺质地中等，导管走行区可扪及硬性结节（1.5cm×0.5cm）",
+                    其他: "体温36.5℃，心率72次/分，血压125/80mmHg"
+                },
+                qaMapping: [
+                    {keywords: ["多久缓解","多久能缓解","缓解要多久","近来", "最近"],answer: "最近肿胀缓解越来越慢，以前停止进食后1-2小时能减轻，现在得持续大半天甚至一天才能稍微消退，还反复出现"},
+                    {keywords: ["多久", "起始时间"],answer: "我这次下颌部位肿起来有4天了，吃饭后肿得更明显。"},
+                    {keywords: ["疼痛", "疼", "痛", "按压"],answer: "有酸胀疼痛感，按压下颌角前方的时候痛感加重，偶尔会牵扯到颈部轻微不适，但不放射到其他部位。"},
+                    {keywords: ["发热", "发烧",  "体温有什么变化", "体温"],answer: "没有发烧症状，体温一直稳定在36.5℃左右，全身也没有乏力、畏寒的情况。"},
+                    {keywords: ["张口", "进食", "吃饭", "影响"],answer: "张口基本不受影响，但吃饭尤其是吃酸性食物（比如橘子、醋）时，下颌肿胀会立刻加重，疼痛感也更明显。"},
+                    {keywords: ["吃药", "治疗", "消炎药", "措施"],answer: "自己买过头孢类消炎药吃，吃了3天，肿胀和疼痛稍微减轻了一点，但停药后又反复肿起来。"},
+                    {keywords: ["皮肤", "颜色", "红", "破溃"],answer: "肿胀部位的皮肤颜色正常，没有发红、发烫，也没有破口、流脓的情况，表面光滑。"},
+                    {keywords: ["感冒", "上呼吸道", "感染"],answer: "半个月前得过一次感冒，流鼻涕、嗓子疼，好了之后没多久就出现下颌肿胀了，不确定有没有关联。"},
+                    {keywords: ["熬夜", "压力", "疲劳", "休息"],answer: "最近备考压力大，经常熬夜看书到凌晨，睡眠不足，感觉累的时候肿胀就更容易发作。"},
+                    {keywords: ["硬食物", "坚果", "咀嚼", "咬"],answer: "发病前几天吃过花生、核桃这些硬坚果，嚼得比较多，当时没感觉异常，隔天吃饭就开始肿了。"},
+                    {keywords: ["颌下腺", "结石", "得过", "病史"],answer: "以前没有确诊过颌下腺结石，这是第一次出现这种反复肿胀的情况，之前偶尔有过下颌轻微酸胀，没在意。"},
+                    {keywords: ["过敏", "过敏史", "药物过敏"],answer: "没有药物或食物过敏史，平时吃头孢、阿莫西林等消炎药都没有不良反应。"},
+                    {keywords: ["家族史", "家人", "遗传", "病史"],answer: "家里人没有得过颌下腺相关疾病，也没有结石类的遗传病史。"},
+                    {keywords: ["外伤", "撞", "碰"],answer: "下颌部位没有受过外伤，也没有撞到过桌椅等硬物，肿胀是自发出现的。"},
+                    {keywords: ["瘙痒", "痒", "灼热", "烫"],answer: "没有瘙痒感，肿胀部位皮肤也不觉得灼热、发烫，只有酸胀疼痛感。"},
+                    {keywords: ["吃", "吃饭", "进食"],answer: "吃酸性、过甜的食物后，下颌立刻就会肿胀加重，疼痛感明显，吃清淡的流食时症状轻一些。"},
+                    {keywords: ["既往", "全身疾病"],answer: "没有高血压、糖尿病、冠心病等慢性病史，没做过手术，也没有输血史，身体状况整体还行。"},
+                    {keywords: ["智牙", "智齿", "牙齿", "牙齿不舒服", "口腔情况"],answer: "智齿已经全部拔除了，平时牙齿没有疼痛、发炎的情况，牙龈也很健康，没有肿胀不适。"},
+                    {keywords: ["发作", "频率"],answer: "刚开始是1个月左右发作1次，近1个月发作频率变高，大概每周都会出现1-2次，吃刺激性食物、熬夜后容易诱发。"},
+                    {keywords: ["自行", "自己", "好转"],answer: "停止进食后，适当按摩下颌部位，肿胀会慢慢缓解，但不会完全消退，下次吃饭又会复发。"},
+                    {keywords: ["之前", "症状", "多久", "发病", "持续", "时间"],answer: "3个月前第一次出现下颌肿胀症状，每次持续2-3天；近1个月发作频繁，每次持续3-5天，症状也比之前重。"},
+                    {keywords: ["早晨", "起床", "口水", "口干", "口苦"],answer: "早晨起床感觉下颌发沉、有异物感，按摩下颌后，口腔底部会流出少量咸味黏稠唾液，之后不适感会减轻；平时没有口干、口苦的情况。"},
+                    {keywords: ["生活", "影响"],answer: "严重影响进食和社交，肿胀时下颌部位明显凸起，影响外观，工作时也会因不适分心，对睡眠影响较小。"},
+                    {keywords: ["之前", "就诊"],answer: "2个月前因为肿胀在社区医院看过，医生开了消炎药，吃后症状缓解；1周前肿胀反复且加重，去当地医院口腔科就诊，怀疑是颌下腺导管结石，建议进一步检查。"},
+                    {keywords: ["吃过什么药","用过什么药","治疗"],answer: "之前口服过头孢类消炎药和清热消肿的中成药，没有使用过外用药物，也没做过手术治疗。"},
+                    {keywords: ["触诊"],answer: "触诊结果：下颌下区可扪及肿大的颌下腺，质地中等，按压有酸胀感，导管走行区可扪及约0.5cm×0.1cm的硬性结节，活动度差，与周围组织轻度粘连。"},
+                    {keywords: ["不舒服", "来就诊"],answer: "下颌下区反复肿胀疼痛3个月，加重4天。"},
+                    {keywords: ["导管口"],answer: "导管口检查结果：（舌下肉阜处）轻度红肿，黏膜无糜烂、溃疡，导管口略显狭窄，挤压颌下腺后流出少量浑浊唾液，可见细小沙砾样物质。"}
+                ]
             },
-            familyHistory: "无腮腺疾病、传染病等家族遗传史",
-            physicalExam: {
-                肿胀部位: "左侧腮腺区肿胀，皮肤略发红，无破溃",
-                触诊: "肿胀部位质地偏硬，无波动感，无瘙痒、灼热感",
-                其他: "体温36.8℃，心率78次/分，呼吸18次/分，血压120/80mmHg"
-            },
-            qaMapping: [
-                // 原有问答数据
-                {keywords: ["肿胀时间", "症状出现", "症状多久", "出现多久"],answer: "我这次左侧腮帮子肿起来有3天了。以前也肿过，不过2个小时左右能消肿，现在几天都没有完全消肿"},
-                {keywords: ["多久缓解", "能缓解", "缓解要", "发病", "持续", "时间", "起始时间", "多久出现一次", "第一次出现",],answer: "2年前第一次出现这种症状，偶尔会出现，每次持续几个小时；最近一个月发作频繁，每次持续3-5天"},
-                {keywords: ["婚姻", "结婚"],answer: "已婚。"},
-                {keywords: ["个人信息"],answer: "我叫王芳，今年28岁，已婚，武汉人，汉族，是公司职员。"},
-                {keywords: ["年龄", "多少岁"],answer: "28岁。"},
-                {keywords: ["工作情况", "工作"],answer: "我是公司职员。"},
-                {keywords: ["籍贯", "哪里人"],answer: "我是武汉人。"},
-                {keywords: ["民族", "什么族"],answer: "我是汉族人。"},
-                {keywords: ["联系方式", "电话"],answer: "我的电话是13300003333。"},
-                {keywords: ["疼痛", "疼", "痛", "按压"],answer: "有轻微的胀痛感，用手按压的时候疼痛会更明显。"},
-                {keywords: ["发热", "发烧",  "体温有什么变化", "体温"],answer: "没有发烧，体温一直都是正常的，大概36.8℃左右。"},
-                {keywords: ["张口", "吃", "吃什么", "食物", "进食", "吃饭", "影响", "咀嚼", "咬"],answer: "吃酸性、油腻或者辛辣的食物后，感觉左侧耳朵周围马上肿胀起来；张口的时候感觉腮帮子有点紧绷，吃饭之后肿胀和疼痛会有明显加重。"},
-                {keywords: ["吃药", "治疗", "消炎", "消炎药", "措施"],answer: "自己在家吃了点阿莫西林，但是吃了之后没什么明显效果。"},
-                {keywords: ["皮肤", "颜色", "红", "破溃"],answer: "肿胀的地方皮肤稍微有点发红，没有破口，也没有流脓之类的情况。"},
-                {keywords: ["感冒", "上呼吸道", "感染"],answer: "一周前有过轻微的感冒，但是已经好了，不知道和这个病有没有关系。"},
-                {keywords: ["熬夜", "压力", "疲劳", "休息"],answer: "最近工作压力挺大的，经常熬夜加班，休息得不太好。"},
-                {keywords: ["家族史", "家人", "遗传", "病史"],answer: "家里人没有得过腮腺相关的疾病，也没有什么遗传病。"},
-                {keywords: ["腮腺炎", "类似症状", "得过", "小时候", "病史"],answer: "小时候得过腮腺炎，具体几岁记不清了，2年前开始出现这种症状。"},
-                {keywords: ["过敏", "过敏史", "药物过敏"],answer: "目前还没有发现过什么药物或食物过敏，平时吃药都没什么问题。"},
-                {keywords: ["月经", "经期"],answer: "我月经周期挺正常的，这次肿胀好像和月经没什么关系。"},
-                {keywords: ["外伤", "撞", "碰"],answer: "没有受过外伤，腮帮子也没有撞到过什么东西。"},
-                {keywords: ["瘙痒", "痒", "灼热", "烫"],answer: "没有瘙痒的感觉，也没有觉得皮肤发烫。"},
-                {keywords: ["过敏"],answer: "目前还没有发现对什么药物或者食物过敏"},
-                {keywords: ["既往史", "既往疾病", "全身", "全身情况", "全身疾病"],answer: "没有高血压、糖尿病、冠心病这些慢性疾病，没有做过手术，也没有输过血"},
-                {keywords: ["智牙", "智齿", "牙齿", "牙齿不舒服", "义齿", "义齿修复", "口腔情况"],answer: "智齿在5年前因为反复发炎都拔掉了，没有假牙，牙龈也没有肿胀不舒服"},
-                {keywords: ["发作情况", "次数", "增加", "频繁", "频率"],answer: "感觉发作频率逐渐在增加，以前3到4个月发作1次，最近半年每个月会发1-2次，熬夜、吃刺激性食物之后就会发"},
-                {keywords: ["自行", "自行缓解", "好转"],answer: "以前停止吃东西之后可以慢慢缓解"},
-                {keywords: ["早晨", "起床", "口水", "口干", "口苦"],answer: "早晨起床的时候左侧腮腺稍微有些不舒服，按摩后嘴巴里会流出少量咸味黏稠液体，症状会有所缓解；平时没有出现过口干口苦"},
-                {keywords: ["生活", "生活质量", "影响"],answer: "影响吃饭；吃饭后出现面部肿胀，影响工作和生活，对睡眠影响不大"},
-                {keywords: ["之前", "既往就诊", "以前看过", "既往治疗", "就诊"],answer: "一年前因为类似症状在社区医院看过，口服消炎药感觉好些；一个月前肿胀发作变的频繁，在当地医院口腔科也看过，使用药物症状可以暂时有所缓解，但肿胀还是会反复发作"},
-                {keywords: ["吃过什么药","用过什么药","治疗"],answer: "之前口服消炎药和中成药，没有做过手术"},
-                {keywords: ["触诊"],answer: "触诊结果：左侧腮腺区肿胀，肿胀部位质地偏硬，无波动感，无瘙痒、灼热感；左侧颊黏膜下可扪及粗硬、条索状导管，与周围组织无明显粘连；右侧基本正常"},
-                {keywords: ["导管口"],answer: "导管口检查结果：左侧（上颌第二磨牙对应颊黏膜处）轻微红肿，黏膜无糜烂溃疡；导管口通畅，挤压后流出少量浑浊唾液，夹杂细小黏液栓子；右侧基本正常"},
-                {keywords: ["超声", "彩超", "检查"],answer: "彩超结果：左侧腮腺体积稍大，实质回声不均，散在低回声区，导管扩张（内径0.3cm），内见少量强回声光点（考虑黏液栓子）；右侧无明显异常。没有做过造影和CT检查"},
-                {keywords: ["查", "血", "血常规"],answer: "昨天查的血常规，白细胞计数在正常范围；C反应蛋白没有明显异常；淀粉酶有轻度升高"},
-                {keywords: ["体重", "变化"],answer: "近3个月体重没有明显变化，大概维持在52公斤左右"},
-                {keywords: ["饮水", "喝水"],answer: "每天喝水大概3杯（1500毫升）左右"},
-                {keywords: ["运动", "锻炼"],answer: "平时很少运动，基本都是久坐办公，周末偶尔会散步"},
-                {keywords: ["不舒服", "来就诊", "来看"],answer: "吃饭后左侧腮帮子肿胀不适"},
-                {keywords: ["睡眠", "睡觉"],answer: "每天睡大概7小时，入睡还算顺利，就是偶尔会因为腮帮子不舒服醒过来"}
-            ]
-        };
-
-        // 病历书写模板
-        const medicalRecordTemplate = `
-1. 一般项目：
-      姓名：______ 性别：____ 年龄：______ 婚姻状况：_____
-      职业：______ 籍贯：______民族：______ 联系方式：______
-      初诊时间    年  月  日   药物过敏情况：_____
-2. 主诉：______
-3. 现病史：
-   起病时间：______ 起病诱因：______主要症状特点：______
-   伴随症状：______诊疗经过：_______全身情况：________
-4. 既往史：_______家庭史：_______
-5. 体格检查：（关键体征：腮腺、导管口、导管）________
-   辅助检查：__________________
-6. 初步诊断：______
-7. 治疗意见：__________________
-        `;
-
-        // 练习状态管理
-        const practiceState = {
-            conversation: [], // 存储对话记录
-            isPracticing: false
-        };
-
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                showApp(user);
-            } else {
-                showLogin();
+            // 腮腺腺淋巴瘤 - 王振宇
+            wangzhenyu: {
+                diseaseType: "腮腺腺淋巴瘤",
+                basicInfo: {姓名: "王振宇",性别: "男",年龄: 62,职业: "退休工人"},
+                chiefComplaint: "右侧耳垂下无痛性肿块6个月，近期略有增大",
+                presentIllness: {
+                    症状持续时间: "肿块出现6个月，无明显诱因，近1个月体积略有增大",
+                    疼痛特点: "全程无疼痛、压痛，无放射痛",
+                    伴随症状: "无发热、口干、眼干，无张口受限，无面部麻木、口角歪斜",
+                    症状变化: "肿块逐渐增大，从黄豆大小增至核桃大小，质地无明显变化",
+                    诊疗经过: "未做任何治疗，仅自行观察",
+                    一般情况: "精神、食欲、睡眠正常，体重无明显变化，二便正常"
+                },
+                pastHistory: {
+                    既往疾病: "高血压病史5年（口服硝苯地平控制，血压稳定），无其他慢性病史",
+                    手术外伤史: "无手术、外伤史",
+                    过敏史: "无药物、食物过敏史",
+                    预防接种史: "按计划接种"
+                },
+                personalHistory: {
+                    生活习惯: "吸烟35年（每天15-20支），饮酒30年（每天饮白酒约2两），现已戒烟戒酒1年",
+                    饮食习惯: "无特殊饮食偏好，喜食油腻食物",
+                    月经史: "无（男性）"
+                },
+                familyHistory: "父亲有高血压病史，无腮腺疾病、肿瘤家族遗传史",
+                physicalExam: {
+                    肿胀部位: "右侧耳垂下腮腺区可触及一肿块，大小约3cm×2.5cm，表面光滑，边界清楚",
+                    触诊: "肿块质地中等偏软，活动度良好，与皮肤及周围组织无粘连，无压痛",
+                    其他: "体温36.6℃，心率75次/分，血压135/85mmHg，全身淋巴结未触及肿大"
+                },
+                qaMapping: [
+                    {keywords: ["多久缓解","多久能缓解","缓解要多久","近来", "最近"],answer: "肿块没有自行缓解的情况，一直在慢慢增大，近1个月增大的速度比之前明显一点。"},
+                    {keywords: ["多久", "起始时间", "发病时间"],answer: "右侧耳朵下面这个肿块大概6个月前发现的，一开始只有黄豆那么大，没太在意。"},
+                    {keywords: ["疼痛", "疼", "痛", "按压"],answer: "全程都没有疼痛感，用手按压也不疼，也不会往头疼、脖子疼这些地方放射。"},
+                    {keywords: ["发热", "发烧", "体温有什么变化", "体温"],answer: "没有发烧过，体温一直都正常，大概36.6℃左右，也没有畏寒、发冷的情况。"},
+                    {keywords: ["张口", "进食", "吃饭", "影响"],answer: "张口完全不受影响，吃饭、咀嚼都正常，吃酸性、辛辣食物后肿块也没有变大或不舒服的感觉。"},
+                    {keywords: ["吃药", "治疗", "消炎药", "措施"],answer: "没吃过任何药，也没做过其他治疗，就是自己观察着，看它慢慢变大了才来医院。"},
+                    {keywords: ["皮肤", "颜色", "红", "破溃"],answer: "肿块表面的皮肤颜色和正常皮肤一样，不发红、不发烫，也没有破口、流脓的情况。"},
+                    {keywords: ["感冒", "上呼吸道", "感染"],answer: "这半年来感冒过2次，都是轻微的流鼻涕、嗓子疼，很快就好了，感觉和这个肿块没什么关系。"},
+                    {keywords: ["熬夜", "压力", "疲劳", "休息"],answer: "已经退休了，平时休息得挺好，没有熬夜的情况，压力也不大，就是偶尔会出去散步。"},
+                    {keywords: ["吸烟", "喝酒", "烟酒"],answer: "以前抽烟喝酒挺厉害的，抽烟35年，每天差不多15-20支，喝酒30年，每天喝2两白酒，不过已经戒烟戒酒1年了。"},
+                    {keywords: ["腮腺", "淋巴瘤", "肿瘤", "得过", "病史"],answer: "以前没有得过腮腺相关的疾病，也没有确诊过肿瘤，这是第一次长这种肿块。"},
+                    {keywords: ["过敏", "过敏史", "药物过敏"],answer: "没有药物或食物过敏史，平时吃高血压的药（硝苯地平）也没有任何不良反应。"},
+                    {keywords: ["家族史", "家人", "遗传", "病史"],answer: "我父亲有高血压，和我一样，家里其他人没有得过腮腺疾病，也没有肿瘤方面的遗传病。"},
+                    {keywords: ["外伤", "撞", "碰"],answer: "右侧耳朵下面这个部位没有受过外伤，也没有撞到过桌椅、墙壁这些硬物，肿块是自己长出来的。"},
+                    {keywords: ["瘙痒", "痒", "灼热", "烫"],answer: "没有瘙痒感，肿块部位也不觉得灼热、发烫，和正常皮肤感觉一样，就是能摸到一个疙瘩。"},
+                    {keywords: ["吃", "吃饭", "进食"],answer: "吃饭、喝水都正常，没有因为这个肿块影响吞咽，吃油腻、辛辣、酸性食物也没有任何不适。"},
+                    {keywords: ["既往", "全身疾病", "高血压"],answer: "有高血压病史5年了，一直在吃硝苯地平，血压控制得还可以，没有糖尿病、冠心病这些其他慢性病史，也没做过手术、输过血。"},
+                    {keywords: ["智牙", "智齿", "牙齿", "牙齿不舒服", "口腔情况"],answer: "智齿很多年前就拔了，平时牙齿没有疼痛、发炎的情况，牙龈也健康，没有红肿、出血的问题。"},
+                    {keywords: ["发作", "频率", "增大"],answer: "肿块不是反复发作，是持续存在并且慢慢增大的，前5个月增大得比较慢，近1个月感觉比之前大得明显一点。"},
+                    {keywords: ["自行", "自己", "好转"],answer: "从来没有自行好转过，也没有缩小过，一直是慢慢增大的趋势。"},
+                    {keywords: ["之前", "症状", "多久", "持续", "时间"],answer: "6个月前第一次发现这个肿块，当时大概黄豆大小，没有任何不适；之后每个月都能感觉到它在变大，现在有核桃那么大了。"},
+                    {keywords: ["早晨", "起床", "口水", "口干", "口苦"],answer: "早晨起床没有口干、口苦的情况，口水分泌也正常，肿块部位早上和晚上感觉没什么区别。"},
+                    {keywords: ["生活", "影响"],answer: "平时生活没什么影响，吃饭、睡觉、说话都正常，就是能摸到一个肿块，心里有点担心，而且最近变大了才来检查。"},
+                    {keywords: ["之前", "就诊", "看过", "治疗"],answer: "之前没去医院看过，一直自己观察，因为不疼不痒也不影响生活，最近感觉增大得明显了，才来医院想看看是什么情况。"},
+                    {keywords: ["吃过什么药","用过什么药","治疗"],answer: "没吃过针对这个肿块的药，只一直在吃高血压的药（硝苯地平），没有用过外用药物，也没做过手术。"},
+                    {keywords: ["触诊"],answer: "触诊结果：右侧耳垂下腮腺区可触及一肿块，大小约3cm×2.5cm，表面光滑，边界清楚，质地中等偏软，活动度良好，与皮肤及周围组织无粘连，无压痛；左侧腮腺区未触及异常。"},
+                    {keywords: ["超声", "彩超", "检查"],answer: "上周做了彩超，结果显示右侧腮腺区可见一低回声肿块，边界清晰，形态规则，内部回声均匀，大小约3.1cm×2.4cm，血流信号不丰富；左侧腮腺未见异常。还没做CT、MRI这些其他检查。"},
+                    {keywords: ["查", "血", "血常规", "肿瘤标志物"],answer: "血常规检查结果都正常，白细胞、红细胞这些指标都在正常范围；肿瘤标志物检查（CEA、CA199）也都正常。"},
+                    {keywords: ["体重", "变化"],answer: "近6个月体重没有明显变化，一直维持在68公斤左右，没有突然变瘦或变胖的情况。"},
+                    {keywords: ["饮水", "喝水"],answer: "每天喝水大概1500毫升左右，分多次喝，没有口干、多饮的情况。"},
+                    {keywords: ["运动", "锻炼"],answer: "退休后平时会出去散步，每天大概走1个小时，没有做过剧烈运动，身体状况整体还可以。"},
+                    {keywords: ["不舒服", "来就诊"],answer: "主要是右侧耳垂下长了个肿块，6个月了一直在增大，虽然不疼不痒，但心里担心，最近增大得更明显，所以来医院检查想明确诊断。"},
+                    {keywords: ["睡眠", "睡觉"],answer: "睡眠很好，每天能睡7-8小时，入睡顺利，不会因为这个肿块影响睡眠，也没有夜间醒来的情况。"},
+                    {keywords: ["面部", "麻木", "口角", "歪斜"],answer: "没有面部麻木的感觉，口角也没有歪斜，眼睛闭合、皱眉这些面部动作都正常，没有受到影响。"},
+                    {keywords: ["淋巴结", "肿大"],answer: "脖子、腋下这些地方的淋巴结都没有摸到肿大，只有右侧耳垂下这个肿块。"},
+                    {keywords: ["高血压", "控制", "吃药"],answer: "高血压吃硝苯地平5年了，每天按时吃，血压一般控制在135/85mmHg左右，比较稳定，没有头晕、头痛的症状。"},
+                    {keywords: ["戒烟戒酒", "时间"],answer: "之前抽烟35年、喝酒30年，因为担心身体，1年前已经彻底戒烟戒酒了，现在没有再碰过。"}
+                ]
             }
-            bindAllEvents();
-        });
-        
-        // 事件绑定统一管理
-        function bindAllEvents(){
-            // 登录提交
-            document.getElementById('loginForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                handleLogin();
-            });
-            
-            // 退出登录（移除发送邮件功能）
-            document.getElementById('logoutBtn').addEventListener('click', function(){
-                if(confirm('确定要退出登录吗？')){
-                    // 移除 sendPracticeRecordEmail() 调用
-                    localStorage.removeItem('currentUser');
-                    localStorage.removeItem('loginTime'); // 清除登录时间
-                    showLogin();
-                }
-            });
-            
-            // 开始问诊练习
-            document.getElementById('startPracticeBtn').addEventListener('click', startPractice);
-            
-            // 提问按钮
-            document.getElementById('askQuestionBtn').addEventListener('click', handleAskQuestion);
-            // 回车提问
-            document.getElementById('userQuestionInput').addEventListener('keydown', e=>{
-                if (e.key === 'Enter') handleAskQuestion();
-            });
-            
-            // 重置练习
-            document.getElementById('resetPracticeBtn').addEventListener('click', resetPractice);
-            
-            // 查看病历模板
-            document.getElementById('viewRecordTemplateBtn').addEventListener('click', function() {
-                showSection('recordTemplateSection');
-                document.getElementById('medicalRecordTemplate').textContent = medicalRecordTemplate;
-            });
-            
-            // 返回首页
-            document.getElementById('backToHomeBtn').addEventListener('click', function() {
-                showSection('homeSection');
-            });
-            
-            // 结束问诊
-            document.getElementById('endPracticeBtn').addEventListener('click', function() {
-                if (confirm('确定结束问诊并退出系统吗？')) {
-                    sendPracticeRecordEmail();
-                    setTimeout(()=>{
-                        localStorage.removeItem('currentUser');
-                        localStorage.removeItem('loginTime');
-                        showLogin();
-                    },800)
-                }
-            });
-            
-            // 从模板页返回首页
-            document.getElementById('backToHomeBtnFromTemplate').addEventListener('click', ()=>showSection('homeSection'));
+        };
+
+        // ========== 核心功能：随机选择患者场景 ==========
+        function getRandomPatient() {
+            const randomKey = patientKeys[Math.floor(Math.random() * patientKeys.length)];
+            return spPatients[randomKey];
         }
 
-        // 显示登录页
-        function showLogin() {
-            document.getElementById('loginPage').classList.remove('hidden');
-            document.getElementById('app').classList.add('hidden');
+        // ========== 加载当前患者场景信息 ==========
+        function loadPatientScene() {
+            currentPatient = getRandomPatient();
+            const { basicInfo } = currentPatient;
+
+            document.getElementById('patientTitle').textContent = `SP标准化病人问诊 - ${basicInfo.姓名}（${basicInfo.性别}，${basicInfo.年龄}岁）`;
+            const basicInfoText = `${basicInfo.姓名}，${basicInfo.性别}，${basicInfo.年龄}岁，${basicInfo.职业}`;
+            document.getElementById('patientBasicInfo').textContent = basicInfoText;
+
+            document.getElementById('conversationContainer').innerHTML = '';
+            conversationHistory = [];
+            document.getElementById('feedbackArea').classList.add('hidden');
         }
-        
-        // 显示应用页
-        function showApp(user) {
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            document.getElementById('userNameDisplay').textContent = user.username;
-            showSection('homeSection'); // 默认显示首页
-        }
-        
-        // 处理登录逻辑（补充登录时间记录）
-        function handleLogin() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const errorMsg = document.getElementById('errorMessage');
-            
-            if (!username || !password) {
-                errorMsg.textContent = '请输入用户名和密码';
-                errorMsg.classList.remove('hidden');
+
+        // ========== 发送问诊记录邮件（通用函数） ==========
+        function sendConsultationEmail(type = "结束问诊") {
+            if (!currentUser || conversationHistory.length === 0) {
+                console.log('无用户信息或对话记录，无需发送邮件');
                 return;
             }
             
+            // 获取当前患者信息
+            let patientInfo = "未知患者";
+            if (currentPatient) {
+                patientInfo = `${currentPatient.basicInfo.姓名}（${currentPatient.diseaseType}）`;
+            }
+
+            // 组装邮件参数
+            const templateParams = {
+                user_name: currentUser,
+                target_email: TARGET_EMAIL,
+                operate_time: new Date().toLocaleString('zh-CN'),
+                login_time: loginTime || '未记录',
+                patient_info: patientInfo,
+                operate_type: type,
+                conversation_history: conversationHistory.join('\n') || '未进行任何问诊对话'
+            };
+
+            // 发送邮件
+            emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams)
+                .then(function(response) {
+                    console.log(`${type}邮件发送成功:`, response.status, response.text);
+                    alert(`${type}成功，问诊记录已发送至指定邮箱！`);
+                }, function(error) {
+                    console.log(`${type}邮件发送失败:`, error);
+                    alert(`${type}成功，但问诊记录邮件发送失败，请查看控制台日志！`);
+                });
+        }
+
+        // ========== 登录逻辑 ==========
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('errorMessage');
+
             const user = USER_LIST.find(u => u.username === username && u.password === password);
             if (user) {
+                currentUser = username;
+                loginTime = new Date().toLocaleString('zh-CN');
+                conversationHistory = [];
                 errorMsg.classList.add('hidden');
-                localStorage.setItem('currentUser', JSON.stringify(user));
-                // 记录登录时间
-                localStorage.setItem('loginTime', new Date().toLocaleString('zh-CN'));
-                showApp(user);
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                document.getElementById('userNameDisplay').textContent = username;
             } else {
-                errorMsg.textContent = '用户名或密码错误';
+                errorMsg.textContent = '用户名或密码错误，请重新输入';
                 errorMsg.classList.remove('hidden');
             }
-        }
+        });
 
-        // 显示指定区域
-        function showSection(sectionId) {
-            // 隐藏所有区域
+        // ========== 退出登录逻辑 ==========
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            // 发送退出登录邮件
+            sendConsultationEmail("退出登录");
+            // 重置状态并返回登录页
+            currentUser = "";
+            loginTime = "";
+            conversationHistory = [];
+            currentPatient = null;
+            document.getElementById('app').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+        });
+
+        // ========== 问诊练习逻辑 ==========
+        document.getElementById('startPracticeBtn').addEventListener('click', function() {
             document.getElementById('homeSection').classList.add('hidden');
+            document.getElementById('spPracticeSection').classList.remove('hidden');
+            loadPatientScene();
+        });
+
+        document.getElementById('backToHomeBtn').addEventListener('click', function() {
             document.getElementById('spPracticeSection').classList.add('hidden');
+            document.getElementById('homeSection').classList.remove('hidden');
+        });
+
+        document.getElementById('viewRecordTemplateBtn').addEventListener('click', function() {
+            document.getElementById('homeSection').classList.add('hidden');
+            document.getElementById('recordTemplateSection').classList.remove('hidden');
+            document.getElementById('medicalRecordTemplate').textContent = `
+【病历模板 - SP标准化病人问诊记录】
+1. 基本信息：
+   姓名：{{患者姓名}}  性别：{{性别}}  年龄：{{年龄}}  职业：{{职业}}
+
+2. 主诉：
+   {{主诉内容}}
+
+3. 现病史：
+   - 症状持续时间：{{持续时间}}
+   - 疼痛特点：{{疼痛特点}}
+   - 伴随症状：{{伴随症状}}
+   - 症状变化：{{症状变化}}
+   - 诊疗经过：{{诊疗经过}}
+   - 一般情况：{{一般情况}}
+
+4. 既往史：
+   {{既往史内容}}
+
+5. 个人史：
+   {{个人史内容}}
+
+6. 家族史：
+   {{家族史内容}}
+
+7. 体格检查：
+   {{体格检查内容}}
+
+8. 问诊总结：
+   {{医生问诊总结}}
+            `;
+        });
+
+        document.getElementById('backToHomeBtnFromTemplate').addEventListener('click', function() {
             document.getElementById('recordTemplateSection').classList.add('hidden');
-            // 显示目标区域
-            document.getElementById(sectionId).classList.remove('hidden');
-        }
+            document.getElementById('homeSection').classList.remove('hidden');
+        });
 
-        // 开始问诊练习
-        function startPractice() {
-            showSection('spPracticeSection');
-            practiceState.isPracticing = true;
-            practiceState.conversation = []; // 清空历史对话
-            document.getElementById('conversationContainer').innerHTML = '';
-            document.getElementById('userQuestionInput').value = '';
-            
-            // 初始化欢迎语
-            const welcomeMsg = {
-                role: 'sp',
-                content: '医生您好，我是王芳。'
-            };
-            practiceState.conversation.push(welcomeMsg);
-            renderConversation();
-        }
+        // 提问逻辑
+        document.getElementById('askQuestionBtn').addEventListener('click', function() {
+            if (!currentPatient) {
+                alert('请先开始问诊练习！');
+                return;
+            }
 
-        // 处理提问逻辑
-        function handleAskQuestion() {
-            const input = document.getElementById('userQuestionInput');
-            const question = input.value.trim();
-            
-            if (!question || !practiceState.isPracticing) return;
-            
-            // 添加用户问题到对话
-            const userMsg = {role: 'student', content: question};
-            practiceState.conversation.push(userMsg);
-            input.value = '';
-            
-            // 获取SP回答
-            const spAnswer = getSpAnswer(question);
-            const spMsg = {role: 'sp', content: spAnswer};
-            practiceState.conversation.push(spMsg);
-            
-            // 渲染对话
-            renderConversation();
-        }
+            const questionInput = document.getElementById('userQuestionInput');
+            const question = questionInput.value.trim();
+            const conversationContainer = document.getElementById('conversationContainer');
+            const feedbackArea = document.getElementById('feedbackArea');
+            const feedbackMessage = document.getElementById('feedbackMessage');
 
-        // 获取SP回答
-        function getSpAnswer(question) {
-            // 匹配关键词
-            for (const qa of spPatientData.qaMapping) {
+            if (!question) {
+                feedbackArea.classList.remove('hidden');
+                feedbackArea.className = 'p-3 rounded-md mb-4 bg-red-50';
+                feedbackMessage.textContent = '请输入问诊问题！';
+                return;
+            }
+
+            // 添加用户问题到对话容器
+            const userMsgDiv = document.createElement('div');
+            userMsgDiv.className = 'flex justify-end';
+            userMsgDiv.innerHTML = `<div class="bg-blue-600 text-white p-3 rounded-lg max-w-[80%]">${question}</div>`;
+            conversationContainer.appendChild(userMsgDiv);
+
+            // 记录对话到历史
+            conversationHistory.push(`医生：${question}`);
+
+            // 清空输入框
+            questionInput.value = '';
+
+            // 隐藏反馈
+            feedbackArea.classList.add('hidden');
+
+            // 查找当前患者匹配的回答
+            const qaList = currentPatient.qaMapping;
+            let answer = '抱歉，我不太清楚您的问题，请换一种问法。';
+            for (const qa of qaList) {
                 if (qa.keywords.some(keyword => question.includes(keyword))) {
-                    return qa.answer;
+                    answer = qa.answer;
+                    break;
                 }
             }
-            // 无匹配时的默认回答
-            return '不好意思，我没听懂你的意思';
-        }
 
-        // 渲染对话
-        function renderConversation() {
-            const container = document.getElementById('conversationContainer');
-            container.innerHTML = '';
-            
-            practiceState.conversation.forEach(msg => {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = msg.role === 'student' 
-                    ? 'flex justify-end' 
-                    : 'flex justify-start';
+            // 模拟延迟回复
+            setTimeout(() => {
+                const patientMsgDiv = document.createElement('div');
+                patientMsgDiv.className = 'flex justify-start';
+                patientMsgDiv.innerHTML = `<div class="bg-gray-200 text-gray-800 p-3 rounded-lg max-w-[80%]">${answer}</div>`;
+                conversationContainer.appendChild(patientMsgDiv);
                 
-                const bubble = document.createElement('div');
-                bubble.className = msg.role === 'student'
-                    ? 'bg-blue-600 text-white p-3 rounded-lg max-w-[70%]'
-                    : 'bg-gray-200 text-gray-800 p-3 rounded-lg max-w-[70%]';
-                bubble.textContent = msg.content;
-                
-                msgDiv.appendChild(bubble);
-                container.appendChild(msgDiv);
-            });
-            
+                // 记录患者回答到历史
+                conversationHistory.push(`患者：${answer}`);
+
+                // 滚动到底部
+                conversationContainer.scrollTop = conversationContainer.scrollHeight;
+            }, 500);
+
             // 滚动到底部
-            container.scrollTop = container.scrollHeight;
-        }
+            conversationContainer.scrollTop = conversationContainer.scrollHeight;
+        });
 
         // 重置练习
-        function resetPractice() {
-            if (confirm('确定要重置本次练习吗？')) {
-                startPractice();
+        document.getElementById('resetPracticeBtn').addEventListener('click', function() {
+            if (confirm('确定要重置当前练习吗？所有对话记录将被清空')) {
+                document.getElementById('conversationContainer').innerHTML = '';
+                document.getElementById('userQuestionInput').value = '';
+                document.getElementById('feedbackArea').classList.add('hidden');
+                conversationHistory = [];
             }
-        }
+        });
 
-        // 发送练习记录邮件（修复空邮件问题）
-        function sendPracticeRecordEmail() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if(!currentUser) return;
-
-            // 1. 格式化对话记录
-            let conversationHistory = "";
-            if(practiceState.conversation.length === 0){
-                conversationHistory = "本次练习暂无问诊对话记录";
-            }else{
-                practiceState.conversation.forEach((msg, index) => {
-                    const roleName = msg.role === 'student' ? "医生" : "标准化病人(王芳)";
-                    conversationHistory += `${index + 1}. ${roleName}：${msg.content}\n`;
-                });
+        // 切换场景
+        document.getElementById('switchSceneBtn').addEventListener('click', function() {
+            if (confirm('确定要切换到新的问诊场景吗？当前对话记录将被保存到历史邮件')) {
+                // 发送切换场景前的记录邮件
+                if (conversationHistory.length > 0) {
+                    sendConsultationEmail("切换场景");
+                }
+                loadPatientScene();
             }
+        });
 
-            // 2. 获取时间
-            const loginTime = localStorage.getItem('loginTime') || "未记录";
-            const logoutTime = new Date().toLocaleString('zh-CN');
+        // 结束问诊（核心修改：添加邮件发送）
+        document.getElementById('endPracticeBtn').addEventListener('click', function() {
+            if (confirm('确定要结束本次问诊练习吗？')) {
+                // 发送结束问诊邮件
+                sendConsultationEmail("结束问诊");
+                
+                // 切换页面
+                document.getElementById('spPracticeSection').classList.add('hidden');
+                document.getElementById('homeSection').classList.remove('hidden');
+                
+                // 保留对话历史（方便后续继续操作）
+                // conversationHistory = []; // 如需清空可取消注释
+            }
+        });
 
-            // 3. 模板参数（匹配EmailJS模板变量）
-            const templateParams = {
-                user_name: currentUser.username,
-                target_email: TARGET_EMAIL,
-                logout_time: logoutTime,
-                login_time: loginTime,
-                conversation_history: conversationHistory
-            };
-
-            emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams)
-                .then(res => {
-                    console.log('✅ 邮件发送成功:', res);
-                    alert('问诊记录提交成功');
-                })
-                .catch(err => {
-                    console.error('❌ 邮件发送失败:', err);
-                    alert('提交失败，请稍后重试！');
-                });
-        }
+        // 回车提交问题
+        document.getElementById('userQuestionInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('askQuestionBtn').click();
+            }
+        });
     </script>
 </body>
 </html>
